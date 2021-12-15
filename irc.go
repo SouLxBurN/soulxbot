@@ -49,8 +49,6 @@ func main() {
 	AppCtx.ClientIRC = twitchirc.NewClient(user, oauth)
 	AppCtx.DiceGame = dice.NewDiceGame(AppCtx.ClientIRC, AppCtx.TwitchAPI)
 
-	AppCtx.TwitchAPI.RefreshToken()
-
 	go pollStreamStatus()
 
 	AppCtx.ClientIRC.OnUserNoticeMessage(func(message twitchirc.UserNoticeMessage) {

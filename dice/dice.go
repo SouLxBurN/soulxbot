@@ -64,7 +64,10 @@ func (dg *DiceGame) StartRoll(channel string) error {
 		fmt.Println("Executing startroll")
 		// Check if prediction is in-flight.
 		// Start prediction
-		prediction, _ := dg.twitchAPI.CreatePrediction("Dice Roll Prediction!", 120, []string{"Even", "Odd"})
+		prediction, err := dg.twitchAPI.CreatePrediction("Dice Roll Prediction!", 120, []string{"Even", "Odd"})
+		if err != nil {
+			return err
+		}
 		// Start a countdown for rolling dice
 		go func() {
 			// Wait for timer
