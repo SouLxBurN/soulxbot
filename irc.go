@@ -64,7 +64,7 @@ func main() {
 		if AppCtx.StreamState == LIVE_NO_FIRST {
 			AppCtx.StreamState = LIVE_W_FIRST
 			AppCtx.DataStore.IncrementTimesFirst(user.ID)
-			// context.ClientIRC.Say(message.Channel, fmt.Sprintf("Congratulations %s! You're first!", message.User.DisplayName))
+			AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Congratulations %s! You're first!", message.User.DisplayName))
 		}
 
 		if isCommand(message.Message) {
