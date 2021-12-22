@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"strconv"
+	"time"
 )
 
 type Database struct {
@@ -17,9 +18,23 @@ func InitDatabase() *Database {
 		log.Println(err)
 	}
 
-	statement, _ := database.Prepare(user_table)
+	statement, err := database.Prepare(enable_foreign_keys)
+	if err != nil {
+		log.Println("Enable statement failed: ", err)
+	}
 	statement.Exec()
-	defer statement.Close()
+	statement.Close()
+
+	statement, _ = database.Prepare(user_table)
+	statement.Exec()
+	statement.Close()
+
+	statement, err = database.Prepare(stream_table)
+	if err != nil {
+		log.Println("Prepared statement failed: ", err)
+	}
+	statement.Exec()
+	statement.Close()
 
 	return &Database{
 		db: database,
@@ -43,7 +58,7 @@ func (d *Database) InsertUser(username string) *User {
 
 	newID, err := result.LastInsertId()
 	if err != nil {
-		log.Println("Error retrieving last insert ID")
+		log.Println("Error retrieving last insert user ID")
 		return nil
 	}
 
@@ -147,4 +162,60 @@ func (d *Database) FindAllUsers() {
 		rows.Scan(&user.ID, &user.Username, &user.TimesFirst)
 		log.Println(strconv.Itoa(user.ID) + " " + user.Username + " " + strconv.Itoa(user.TimesFirst))
 	}
+}
+
+// InsertStream
+// Inserts a new stream record with the first user as null
+func (d *Database) InsertStream(title string, startedAt time.Time) *Stream {
+	statement, err := d.db.Prepare(INSERT_STREAM)
+	defer statement.Close()
+	if err != nil {
+		log.Println("Error preparing insert stream statement: ", err)
+		return nil
+	}
+
+	result, err := statement.Exec(title, startedAt, nil)
+	if err != nil {
+		log.Println("Error inserting stream: ", err)
+		return nil
+	}
+
+	newID, err := result.LastInsertId()
+	if err != nil {
+		log.Println("Error retrieving last insert stream ID")
+		return nil
+	}
+
+	return &Stream{
+		ID:        int(newID),
+		Title:     title,
+		StartedAt: startedAt,
+	}
+}
+
+// UpdateFirstUser
+func (d *Database) UpdateFirstUser(streamId int, userId int) error {
+	statement, err := d.db.Prepare(UPDATE_FIRST_USER)
+	defer statement.Close()
+	if err != nil {
+		log.Println("Error preparing update first user statement: ", err)
+		return err
+	}
+
+	result, err := statement.Exec(userId, streamId)
+	if err != nil {
+		log.Printf("Error updating first user for streamId(%d): %x\n", streamId, err)
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		log.Println("Error retrieving rows affected")
+		return nil
+	}
+
+	log.Println(streamId, userId)
+	log.Println(rows)
+
+	return nil
 }

@@ -4,6 +4,7 @@ const INSERT_USER string = `
 INSERT INTO user (username)
 VALUES (?)
 `
+
 const INCREMENT_TIMES_FIRST string = `
 UPDATE user
 SET timesFirst = timesFirst + 1
@@ -32,4 +33,15 @@ SELECT id, username, timesFirst
 FROM user
 ORDER BY timesFirst DESC
 LIMIT ?
+`
+
+const INSERT_STREAM string = `
+INSERT INTO stream (title, startedAt, first_userId)
+VALUES (?,?,?)
+`
+
+const UPDATE_FIRST_USER string = `
+UPDATE stream
+SET first_userId=?
+WHERE id=?
 `

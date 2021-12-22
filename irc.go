@@ -21,6 +21,7 @@ const (
 )
 
 type AppContext struct {
+	StreamInfo  *db.Stream
 	StreamState int
 	Timers      map[string]*time.Timer
 	TwitchAPI   twitch.ITwitchAPI
@@ -61,15 +62,17 @@ func main() {
 			user = AppCtx.DataStore.InsertUser(message.User.DisplayName)
 		}
 
-		if AppCtx.StreamState == LIVE_NO_FIRST {
-			AppCtx.StreamState = LIVE_W_FIRST
-			AppCtx.DataStore.IncrementTimesFirst(user.ID)
-			AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Congratulations %s! You're first!", message.User.DisplayName))
-		}
-
 		if isCommand(message.Message) {
 			switch message.Message[1:] {
-			case "firstLeaders":
+			case "first":
+				if AppCtx.StreamState == LIVE_W_FIRST {
+					if AppCtx.StreamInfo.FirstUser.Username != user.Username {
+						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Sorry %s, you are not first. %s was!", message.User.DisplayName, AppCtx.StreamInfo.FirstUser.Username))
+					} else {
+						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("/timeout %[1]s 60 Yes %[1]s! We KNOW. You were first...", message.User.DisplayName))
+					}
+				}
+			case "firstleaders":
 				leaders, _ := AppCtx.DataStore.TimesFirstLeaders(3)
 				for i, v := range leaders {
 					AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%d. %s - %d", i+1, v.Username, v.TimesFirst))
@@ -87,6 +90,14 @@ func main() {
 			}
 		}
 
+		if AppCtx.StreamState == LIVE_NO_FIRST {
+			AppCtx.StreamState = LIVE_W_FIRST
+			AppCtx.DataStore.IncrementTimesFirst(user.ID)
+			AppCtx.DataStore.UpdateFirstUser(AppCtx.StreamInfo.ID, user.ID)
+			AppCtx.StreamInfo.FirstUser = user
+			AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Congratulations %s! You're first!", message.User.DisplayName))
+		}
+
 		fmt.Printf("%s: %s\n", message.User.DisplayName, message.Message)
 	})
 
@@ -99,7 +110,7 @@ func main() {
 
 // pollStreamStatus
 func pollStreamStatus() {
-	tick := time.NewTicker(1 * time.Minute)
+	tick := time.NewTicker(5 * time.Second)
 	for {
 		select {
 		case <-tick.C:
@@ -110,9 +121,11 @@ func pollStreamStatus() {
 
 			if streamInfo == nil {
 				AppCtx.StreamState = NOT_LIVE
+				AppCtx.StreamInfo = nil
 			} else {
 				if AppCtx.StreamState == NOT_LIVE {
 					AppCtx.StreamState = LIVE_NO_FIRST
+					AppCtx.StreamInfo = AppCtx.DataStore.InsertStream(streamInfo.Title, streamInfo.StartedAt)
 				}
 			}
 
