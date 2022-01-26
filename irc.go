@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	twitchirc "github.com/gempir/go-twitch-irc/v2"
@@ -63,7 +64,9 @@ func main() {
 		}
 
 		if isCommand(message.Message) {
-			switch message.Message[1:] {
+			command, input := parseCommand(message.Message)
+
+			switch command {
 			case "first":
 				if AppCtx.StreamState == LIVE_W_FIRST {
 					if AppCtx.StreamInfo.FirstUser.Username != user.Username {
@@ -87,10 +90,49 @@ func main() {
 				} else {
 					AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%s, That command is on cooldown", message.User.DisplayName))
 				}
+			case "firstgive":
+				if isSouLxBurN(message.User.DisplayName) && len(input) > 0 {
+					targetUser, found := AppCtx.DataStore.FindUserByUsername(input)
+					if found {
+						AppCtx.DataStore.IncrementTimesFirst(targetUser.ID)
+						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%s has gained a first point!", targetUser.Username))
+					} else {
+						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("That user does not exist"))
+					}
+				}
+			case "firsttake":
+				if isSouLxBurN(message.User.DisplayName) && len(input) > 0 {
+					targetUser, found := AppCtx.DataStore.FindUserByUsername(input)
+					if found {
+						AppCtx.DataStore.DecrementTimesFirst(targetUser.ID)
+						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%s has lost a first point BibleThump", targetUser.Username))
+					} else {
+						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("That user does not exist"))
+					}
+				}
+			case "thanos":
+				if isSouLxBurN(message.User.DisplayName) {
+					users, err := AppCtx.ClientIRC.Userlist(message.Channel)
+					if err != nil {
+						log.Println("Unable to fetch user list")
+					} else {
+						theChosen := []string{}
+						for i, usr := range users {
+							if i%2 == 0 {
+								theChosen = append(theChosen, usr)
+							}
+						}
+
+						for _, usr := range theChosen {
+							AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("/timeout %s 60 *SNAP*", usr))
+							time.Sleep(time.Millisecond * 500)
+						}
+					}
+				}
 			}
 		}
 
-		if AppCtx.StreamState == LIVE_NO_FIRST {
+		if AppCtx.StreamState == LIVE_NO_FIRST && isEligibleForFirst(message.User.DisplayName) {
 			AppCtx.StreamState = LIVE_W_FIRST
 			AppCtx.DataStore.IncrementTimesFirst(user.ID)
 			AppCtx.DataStore.UpdateFirstUser(AppCtx.StreamInfo.ID, user.ID)
@@ -128,7 +170,6 @@ func pollStreamStatus() {
 					AppCtx.StreamInfo = AppCtx.DataStore.InsertStream(streamInfo.Title, streamInfo.StartedAt)
 				}
 			}
-
 		}
 	}
 }
@@ -139,4 +180,23 @@ func isCommand(message string) bool {
 		return true
 	}
 	return false
+}
+
+// parseCommand
+func parseCommand(message string) (string, string) {
+	split := strings.Split(message[1:], " ")
+	if len(split) >= 2 {
+		return split[0], split[1]
+	}
+	return split[0], ""
+}
+
+// isEligibleForFirst
+func isEligibleForFirst(username string) bool {
+	return !strings.Contains(strings.ToLower(username), "bot") && !isSouLxBurN(username)
+}
+
+// isSouLxBurN
+func isSouLxBurN(username string) bool {
+	return strings.ToLower(username) == "soulxburn"
 }

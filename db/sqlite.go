@@ -75,13 +75,40 @@ func (d *Database) IncrementTimesFirst(ID int) error {
 	statement, err := d.db.Prepare(INCREMENT_TIMES_FIRST)
 	defer statement.Close()
 	if err != nil {
-		log.Println("Error preparing icrement times first statement: ", err)
+		log.Println("Error preparing increment times first statement: ", err)
 		return err
 	}
 
 	result, err := statement.Exec(ID)
 	if err != nil {
 		log.Println("Error incrementing timesFirst: ", err)
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		log.Println("Error retrieving rows affected")
+		return nil
+	}
+
+	log.Println(ID)
+	log.Println(rows)
+
+	return nil
+}
+
+// IncrementTimesFirst
+func (d *Database) DecrementTimesFirst(ID int) error {
+	statement, err := d.db.Prepare(DECREMENT_TIMES_FIRST)
+	defer statement.Close()
+	if err != nil {
+		log.Println("Error preparing decrement times first statement: ", err)
+		return err
+	}
+
+	result, err := statement.Exec(ID)
+	if err != nil {
+		log.Println("Error decrementing timesFirst: ", err)
 		return err
 	}
 

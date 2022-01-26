@@ -11,6 +11,12 @@ SET timesFirst = timesFirst + 1
 WHERE id=?
 `
 
+const DECREMENT_TIMES_FIRST string = `
+UPDATE user
+SET timesFirst = timesFirst - 1
+WHERE id=?
+`
+
 const FIND_ALL_USERS string = `
 SELECT id, username, timesFirst
 FROM user
