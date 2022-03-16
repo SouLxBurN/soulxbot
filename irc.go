@@ -159,6 +159,7 @@ func pollStreamStatus() {
 			streamInfo, err := AppCtx.TwitchAPI.GetStream("SouLxBurN")
 			if err != nil {
 				log.Println("Error fetching stream info: ", err)
+				continue
 			}
 
 			if streamInfo == nil {
