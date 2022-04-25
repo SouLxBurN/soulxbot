@@ -75,6 +75,8 @@ func main() {
 						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("/timeout %[1]s 60 Yes %[1]s! We KNOW. You were first...", message.User.DisplayName))
 					}
 				}
+			case "firstcount":
+				AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%s, you have been first %d times", user.Username, user.TimesFirst))
 			case "firstleaders":
 				leaders, _ := AppCtx.DataStore.TimesFirstLeaders(3)
 				for i, v := range leaders {
