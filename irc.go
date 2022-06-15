@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -44,6 +45,7 @@ func main() {
 	clientSecret := os.Getenv("SOULXBOT_CLIENTSECRET")
 	authToken := os.Getenv("SOULXBOT_AUTHTOKEN")
 	refreshToken := os.Getenv("SOULXBOT_REFRESHTOKEN")
+	goliveKey := os.Getenv("SOULXBOT_GOLIVEKEY")
 
 	AppCtx.StreamState = NOT_LIVE
 	AppCtx.DataStore = db.InitDatabase()
@@ -51,6 +53,20 @@ func main() {
 	AppCtx.ClientIRC = twitchirc.NewClient(user, oauth)
 	AppCtx.DiceGame = dice.NewDiceGame(AppCtx.ClientIRC, AppCtx.TwitchAPI)
 
+	http.HandleFunc("/golive", func(res http.ResponseWriter, req *http.Request) {
+		params := req.URL.Query()
+		api_key := params.Get("key")
+
+		if api_key == goliveKey && AppCtx.StreamState == NOT_LIVE {
+			fmt.Println("SouLxBurN is now live!")
+			AppCtx.StreamState = LIVE_NO_FIRST
+			res.WriteHeader(http.StatusAccepted)
+		} else {
+			fmt.Println("Go live not authorized")
+			res.WriteHeader(http.StatusUnauthorized)
+		}
+	})
+	go http.ListenAndServe(":8080", nil)
 	go pollStreamStatus()
 
 	AppCtx.ClientIRC.OnUserNoticeMessage(func(message twitchirc.UserNoticeMessage) {
@@ -137,8 +153,10 @@ func main() {
 		if AppCtx.StreamState == LIVE_NO_FIRST && isEligibleForFirst(message.User.DisplayName) {
 			AppCtx.StreamState = LIVE_W_FIRST
 			AppCtx.DataStore.IncrementTimesFirst(user.ID)
-			AppCtx.DataStore.UpdateFirstUser(AppCtx.StreamInfo.ID, user.ID)
-			AppCtx.StreamInfo.FirstUser = user
+			AppCtx.DataStore.UpdateFirstUser(0, user.ID)
+			AppCtx.StreamInfo = &db.Stream{
+				FirstUser: user,
+			}
 			AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Congratulations %s! You're first!", message.User.DisplayName))
 		}
 
@@ -154,7 +172,7 @@ func main() {
 
 // pollStreamStatus
 func pollStreamStatus() {
-	tick := time.NewTicker(5 * time.Second)
+	tick := time.NewTicker(60 * time.Second)
 	for {
 		select {
 		case <-tick.C:
@@ -167,11 +185,6 @@ func pollStreamStatus() {
 			if streamInfo == nil {
 				AppCtx.StreamState = NOT_LIVE
 				AppCtx.StreamInfo = nil
-			} else {
-				if AppCtx.StreamState == NOT_LIVE {
-					AppCtx.StreamState = LIVE_NO_FIRST
-					AppCtx.StreamInfo = AppCtx.DataStore.InsertStream(streamInfo.Title, streamInfo.StartedAt)
-				}
 			}
 		}
 	}
