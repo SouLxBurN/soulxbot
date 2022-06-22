@@ -65,9 +65,9 @@ func main() {
 			fmt.Println("Go live not authorized")
 			res.WriteHeader(http.StatusUnauthorized)
 		}
+		go pollStreamStatus()
 	})
 	go http.ListenAndServe(":8080", nil)
-	go pollStreamStatus()
 
 	AppCtx.ClientIRC.OnUserNoticeMessage(func(message twitchirc.UserNoticeMessage) {
 		fmt.Printf("Notice: %s\n", message.Message)
@@ -172,7 +172,7 @@ func main() {
 
 // pollStreamStatus
 func pollStreamStatus() {
-	tick := time.NewTicker(60 * time.Second)
+	tick := time.NewTicker(5 * time.Minute)
 	for {
 		select {
 		case <-tick.C:
@@ -185,6 +185,8 @@ func pollStreamStatus() {
 			if streamInfo == nil {
 				AppCtx.StreamState = NOT_LIVE
 				AppCtx.StreamInfo = nil
+				tick.Stop()
+				return
 			}
 		}
 	}
