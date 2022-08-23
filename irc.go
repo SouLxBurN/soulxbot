@@ -128,6 +128,12 @@ func main() {
 						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("That user does not exist"))
 					}
 				}
+			case "raid":
+				var buff strings.Builder
+				for i := 0; i < 9; i++ {
+					buff.WriteString("%[1]s %[2]s %[3]s ")
+				}
+				AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf(buff.String(), "PowerUpL", "soulxbGASMShake", "PowerUpR"))
 			case "thanos":
 				if isSouLxBurN(message.User.DisplayName) {
 					users, err := AppCtx.ClientIRC.Userlist(message.Channel)
@@ -211,7 +217,9 @@ func parseCommand(message string) (string, string) {
 
 // isEligibleForFirst
 func isEligibleForFirst(username string) bool {
-	return !strings.Contains(strings.ToLower(username), "bot") && !isSouLxBurN(username)
+	return !strings.Contains(strings.ToLower(username), "bot") &&
+		!strings.EqualFold(username, "PokemonCommunityGame") &&
+		!isSouLxBurN(username)
 }
 
 // isSouLxBurN
