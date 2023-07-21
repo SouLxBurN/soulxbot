@@ -237,7 +237,7 @@ func (d *Database) FindCurrentStream(userId int) *Stream {
 	}
 	var stream Stream
 	if rows.Next() {
-		stream = scanRowIntoStream(rows)
+		scanRowIntoStream(&stream, rows)
 		return &stream
 	} else {
 		return nil
@@ -253,15 +253,17 @@ func (d *Database) FindAllCurrentStreams() []Stream {
 		return nil
 	}
 	var streams []Stream
+	
 	if rows.Next() {
-		streams = append(streams, scanRowIntoStream(rows))
+		var stream Stream
+		scanRowIntoStream(&stream, rows)
+		streams = append(streams, stream)
 	}
 	return streams
 }
 
 // Helper for scanning rows into a stream
-func scanRowIntoStream(rows *sql.Rows) Stream {
-	var stream Stream
+func scanRowIntoStream(stream *Stream, rows *sql.Rows)  {
 	rows.Scan(
 		&stream.ID,
 		&stream.TWID,
@@ -272,7 +274,6 @@ func scanRowIntoStream(rows *sql.Rows) Stream {
 		&stream.FirstUserId,
 		&stream.QOTDId,
 	)
-	return stream
 }
 
 func (d *Database) FindStreamById(streamId int) *Stream {
@@ -284,7 +285,7 @@ func (d *Database) FindStreamById(streamId int) *Stream {
 	}
 	var stream Stream
 	if rows.Next() {
-		stream = scanRowIntoStream(rows)
+		scanRowIntoStream(&stream, rows)
 		return &stream
 	} else {
 		return nil
