@@ -69,7 +69,7 @@ func prepareAndExec(db *sql.DB, query string) (err error) {
 // InsertUser
 func (d *Database) InsertUser(id int, username string, displayName string) *User {
 	statement, err := d.db.Prepare(INSERT_USER)
-	defer statement.Close()
+	func() { _ = statement.Close() }()
 	if err != nil {
 		log.Println("Error preparing insert user statement: ", err)
 		return nil
@@ -91,7 +91,7 @@ func (d *Database) InsertUser(id int, username string, displayName string) *User
 // UpdateAPIKeyForUser
 func (d *Database) UpdateAPIKeyForUser(userId int, apiKey string) error {
 	statement, err := d.db.Prepare(UPDATE_APIKEY_BY_USERID)
-	defer statement.Close()
+	func() { _ = statement.Close() }()
 	if err != nil {
 		log.Println("Error preparing update api key statement: ", err)
 	}
@@ -107,7 +107,7 @@ func (d *Database) UpdateAPIKeyForUser(userId int, apiKey string) error {
 // FindUserByID
 func (d *Database) FindUserByID(ID int) (*User, bool) {
 	rows, _ := d.db.Query(FIND_USER_BY_ID, ID)
-	defer rows.Close()
+	func() { _ = rows.Close() }()
 	if !rows.Next() {
 		return nil, false
 	}
@@ -121,7 +121,7 @@ func (d *Database) FindUserByID(ID int) (*User, bool) {
 // FindUserByUsername
 func (d *Database) FindUserByUsername(username string) (*User, bool) {
 	rows, err := d.db.Query(FIND_USER_BY_USERNAME, username)
-	defer rows.Close()
+	func() { _ = rows.Close() }()
 	if err != nil {
 		log.Println("Error finding user: ", err)
 		return nil, false
@@ -139,7 +139,7 @@ func (d *Database) FindUserByUsername(username string) (*User, bool) {
 // FindUserByApiKey
 func (d *Database) FindUserByApiKey(apiKey string) (*User, bool) {
 	rows, err := d.db.Query(FIND_USER_BY_APIKEY, apiKey)
-	defer rows.Close()
+	func() { _ = rows.Close() }()
 	if err != nil {
 		log.Println("Error finding user: ", err)
 		return nil, false
@@ -157,7 +157,7 @@ func (d *Database) FindUserByApiKey(apiKey string) (*User, bool) {
 // FindUserTimesFirst
 func (d *Database) FindUserTimesFirst(streamUserId int, userId int) (int, error) {
 	rows, err := d.db.Query(FIND_USER_TIMES_FIRST, streamUserId, userId)
-	defer rows.Close()
+	func() { _ = rows.Close() }()
 	if err != nil {
 		log.Println("Error finding first count: ", err)
 		return 0, err
@@ -174,7 +174,7 @@ func (d *Database) FindUserTimesFirst(streamUserId int, userId int) (int, error)
 // FindFirstLeaders
 func (d *Database) FindFirstLeaders(streamUser int, count int) ([]FirstLeadersResult, error) {
 	rows, err := d.db.Query(FIND_TIMES_FIRST_LEADERS, streamUser, count)
-	defer rows.Close()
+	func() { _ = rows.Close() }()
 	if err != nil {
 		log.Println("Error finding first leaders: ", err)
 		return nil, err
@@ -194,7 +194,7 @@ func (d *Database) FindFirstLeaders(streamUser int, count int) ([]FirstLeadersRe
 // FindAllUsers
 func (d *Database) FindAllUsers() {
 	rows, err := d.db.Query(FIND_ALL_USERS)
-	defer rows.Close()
+	func() { _ = rows.Close() }()
 	if err != nil {
 		log.Println("Error finding all users: ", err)
 		return
@@ -210,7 +210,8 @@ func (d *Database) FindAllUsers() {
 // FindAllApiKeyUsers
 func (d *Database) FindAllApiKeyUsers() ([]User, error) {
 	rows, err := d.db.Query(FIND_ALL_APIKEY_USERS)
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
+
 	if err != nil {
 		log.Println("Error finding registered users : ", err)
 		return nil, err
@@ -229,7 +230,7 @@ func (d *Database) FindAllApiKeyUsers() ([]User, error) {
 // FindCurrentStream
 func (d *Database) FindCurrentStream(userId int) *Stream {
 	rows, err := d.db.Query(FIND_CURRENT_STREAM_BY_USERID, userId)
-	defer rows.Close()
+	func() { _ = rows.Close() }()
 	if err != nil {
 		log.Println("Error finding current stream statement: ", err)
 		return nil
@@ -255,7 +256,7 @@ func (d *Database) FindCurrentStream(userId int) *Stream {
 // FindAllCurrentStreams
 func (d *Database) FindAllCurrentStreams() []Stream {
 	rows, err := d.db.Query(FIND_ALL_CURRENT_STREAMS)
-	defer rows.Close()
+	func() { _ = rows.Close() }()
 	if err != nil {
 		log.Println("Error finding all current streams statement: ", err)
 		return nil
@@ -280,7 +281,7 @@ func (d *Database) FindAllCurrentStreams() []Stream {
 
 func (d *Database) FindStreamById(streamId int) *Stream {
 	rows, err := d.db.Query(FIND_STREAM_BY_ID, streamId)
-	defer rows.Close()
+	func() { _ = rows.Close() }()
 	if err != nil {
 		log.Println("Error finding stream by id statement: ", err)
 		return nil
@@ -307,7 +308,7 @@ func (d *Database) FindStreamById(streamId int) *Stream {
 // Inserts a new stream record with with most data as null
 func (d *Database) InsertStream(userId int, startedAt time.Time) *Stream {
 	statement, err := d.db.Prepare(INSERT_STREAM)
-	defer statement.Close()
+	func() { _ = statement.Close() }()
 	if err != nil {
 		log.Println("Error preparing insert stream statement: ", err)
 		return nil
@@ -335,7 +336,7 @@ func (d *Database) InsertStream(userId int, startedAt time.Time) *Stream {
 // UpdateFirstUser
 func (d *Database) UpdateFirstUser(streamId int, userId int) error {
 	statement, err := d.db.Prepare(UPDATE_FIRST_USER)
-	defer statement.Close()
+	func() { _ = statement.Close() }()
 	if err != nil {
 		log.Println("Error preparing update first user statement: ", err)
 		return err
@@ -358,7 +359,7 @@ func (d *Database) UpdateFirstUser(streamId int, userId int) error {
 
 func (d *Database) UpdateStreamEndedAt(streamId int, endedAt time.Time) error {
 	statement, err := d.db.Prepare(UPDATE_STREAM_ENDED)
-	defer statement.Close()
+	func() { _ = statement.Close() }()
 	if err != nil {
 		log.Println("Error preparing update stream endedAt statement: ", err)
 		return err
@@ -375,7 +376,7 @@ func (d *Database) UpdateStreamEndedAt(streamId int, endedAt time.Time) error {
 
 func (d *Database) UpdateStreamInfo(streamId int, twid int, title string) error {
 	statement, err := d.db.Prepare(UPDATE_STREAM_INFO)
-	defer statement.Close()
+	func() { _ = statement.Close() }()
 	if err != nil {
 		log.Println("Error preparing update stream info statement: ", err)
 		return err
@@ -410,7 +411,7 @@ func (d *Database) UpdateStreamQuestion(streamId int, questionId *int) error {
 // FindQuestionByID
 func (d *Database) FindQuestionByID(ID int) (*Question, bool) {
 	rows, _ := d.db.Query(FIND_QUESTION_BY_ID, ID)
-	defer rows.Close()
+	func() { _ = rows.Close() }()
 	if !rows.Next() {
 		return nil, false
 	}
@@ -428,13 +429,13 @@ func (d *Database) FindRandomQuestion(streamId int) (*Question, error) {
 		Text: "Go ask ChatGPT for your question!",
 	}
 	rows, err := d.db.Query(FIND_RANDOM_QUESTION, streamId)
-	defer rows.Close()
+	func() { _ = rows.Close() }()
 	if err != nil {
 		log.Println("Error finding random question: ", err)
 		return defaultQuestion, err
 	}
 	if !rows.Next() {
-		return defaultQuestion, errors.New("No questions found")
+		return defaultQuestion, errors.New("no questions found")
 	}
 
 	var question Question
