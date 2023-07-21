@@ -24,53 +24,46 @@ func InitDatabase() *Database {
 		log.Println(err)
 	}
 
-	statement, err := database.Prepare(enable_foreign_keys)
-	if err != nil {
+	if prepareAndExec(database, enable_foreign_keys) != nil {
 		log.Println("Enable statement failed: ", err)
 	}
-	statement.Exec()
-	statement.Close()
 
-	statement, err = database.Prepare(user_table)
-	if err != nil {
+	if prepareAndExec(database, user_table) != nil {
 		log.Println("Prepared statement user_table failed: ", err)
 	}
-	statement.Exec()
-	statement.Close()
 
-	statement, err = database.Prepare(question_table)
-	if err != nil {
+	if prepareAndExec(database, question_table) != nil {
 		log.Println("Prepared statement question_table failed: ", err)
 	}
-	statement.Exec()
-	statement.Close()
 
-	statement, err = database.Prepare(stream_table)
-	if err != nil {
+	if prepareAndExec(database, stream_table) != nil {
 		log.Println("Prepared statement stream_table failed: ", err)
 	}
 
-	statement.Exec()
-	statement.Close()
-
-	statement, err = database.Prepare(questionSeed)
-	if err != nil {
+	if prepareAndExec(database, questionSeed) != nil {
 		log.Println("prepared statement questionseed failed: ", err)
 	}
 
-	statement.Exec()
-	statement.Close()
-
-	statement, err = database.Prepare(userSeed)
-	if err != nil {
+	if prepareAndExec(database, userSeed) != nil {
 		log.Println("Prepared statement questionSeed failed: ", err)
 	}
-	statement.Exec()
-	statement.Close()
 
 	return &Database{
 		db: database,
 	}
+}
+
+// Helper function to prepare, exec and close a query
+func prepareAndExec(db *sql.DB, query string) (err error) {
+	statement, err := db.Prepare(query)
+	if err != nil {
+		return
+	}
+
+	statement.Exec()
+	statement.Close()
+
+	return
 }
 
 // InsertUser
