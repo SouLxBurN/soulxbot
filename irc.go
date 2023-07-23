@@ -168,24 +168,30 @@ func main() {
 			case "qotd":
 				questionOfTheDay(stream, &message)
 			case "skipqotd":
-				AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Question of the day skipped"))
-				AppCtx.DataStore.UpdateStreamQuestion(stream.ID, nil)
+				if stream != nil && stream.UserId == messageUser.ID {
+					AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Question of the day skipped"))
+					AppCtx.DataStore.UpdateStreamQuestion(stream.ID, nil)
+				}
 			case "printall":
 				AppCtx.DataStore.FindAllUsers()
 			case "startroll":
-				if AppCtx.DiceGame.CanRoll {
-					if err := AppCtx.DiceGame.StartRoll(message.Channel); err != nil {
-						log.Println("Failed to start roll: ", err)
+				if isSouLxBurN(streamUser.Username) {
+					if AppCtx.DiceGame.CanRoll {
+						if err := AppCtx.DiceGame.StartRoll(message.Channel); err != nil {
+							log.Println("Failed to start roll: ", err)
+						}
+					} else {
+						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%s, That command is on cooldown", message.User.DisplayName))
 					}
-				} else {
-					AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%s, That command is on cooldown", message.User.DisplayName))
 				}
 			case "raid":
-				var buff strings.Builder
-				for i := 0; i < 9; i++ {
-					buff.WriteString("%[1]s %[2]s %[3]s ")
+				if isSouLxBurN(streamUser.Username) {
+					var buff strings.Builder
+					for i := 0; i < 9; i++ {
+						buff.WriteString("%[1]s %[2]s %[3]s ")
+					}
+					AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf(buff.String(), "PowerUpL", "soulxbGASMShake", "PowerUpR"))
 				}
-				AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf(buff.String(), "PowerUpL", "soulxbGASMShake", "PowerUpR"))
 			case "thanos":
 				thanos(&message)
 			}
@@ -301,7 +307,7 @@ func questionOfTheDay(stream *db.Stream, message *twitchirc.PrivateMessage) {
 }
 
 func thanos(message *twitchirc.PrivateMessage) error {
-	if !isSouLxBurN(message.User.DisplayName) {
+	if !isSouLxBurN(message.User.DisplayName) && !isSouLxBurN(message.Channel) {
 		return errors.New("You are not Thanos")
 	}
 	users, err := AppCtx.ClientIRC.Userlist(message.Channel)
