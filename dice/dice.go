@@ -10,22 +10,14 @@ import (
 	"github.com/soulxburn/soulxbot/twitch"
 )
 
+const (
+	ROLL_COOLDOWN_RESET = 180 * time.Second
+	ROLL_COOLDOWN_START = 10 * time.Second
+	COUNTDOWN_TIMER     = 121 * time.Second
+)
+
 type Dice struct {
 	sides int
-}
-
-// NewDice
-func NewDice(sides int) *Dice {
-	rand.Seed(time.Now().UnixNano())
-	return &Dice{
-		sides: sides,
-	}
-}
-
-// Roll
-func (d *Dice) Roll() int {
-	roll := (rand.Int() % d.sides) + 1
-	return roll
 }
 
 type DiceGame struct {
@@ -36,12 +28,48 @@ type DiceGame struct {
 	twitchAPI    twitch.ITwitchAPI
 }
 
+// NewDice
+func NewDice(sides int) *Dice {
+	return &Dice{
+		sides: sides,
+	}
+}
+
+// Allow for many dice
+func NewDiceSlice(count int, sides int) []*Dice {
+	// Seeds once, rather than per-dice
+	rand.Seed(time.Now().UnixNano())
+	dice := make([]*Dice, count)
+
+	for i := 0; i < count; i++ {
+		dice = append(dice, NewDice(sides))
+	}
+
+	return dice
+}
+
+func (dg *DiceGame) RollAll(channel string) int {
+	var result int
+	for i, dice := range dg.Dice {
+		roll := dice.Roll()
+		dg.ircClient.Say(channel, fmt.Sprintf("Dice #%d: %d", i+1, roll))
+		result += roll
+	}
+	return result
+}
+
+// Roll
+func (d *Dice) Roll() int {
+	roll := (rand.Int() % d.sides) + 1
+	return roll
+}
+
 // NewDiceGame
 func NewDiceGame(ircClient *twitchirc.Client, twitchAPI twitch.ITwitchAPI) *DiceGame {
 	diceGame := &DiceGame{
-		Dice:         []*Dice{NewDice(6), NewDice(6)},
+		Dice:         NewDiceSlice(2, 6),
 		CanRoll:      true,
-		rollCooldown: time.NewTimer(10 * time.Second),
+		rollCooldown: time.NewTimer(ROLL_COOLDOWN_START),
 		ircClient:    ircClient,
 		twitchAPI:    twitchAPI,
 	}
@@ -58,48 +86,45 @@ func (dg *DiceGame) startCooldownTimer() {
 
 // StartRoll
 func (dg *DiceGame) StartRoll(channel string) error {
-	if dg.CanRoll {
-		dg.rollCooldown.Reset(180 * time.Second)
-		dg.CanRoll = false
-		fmt.Println("Executing startroll")
-		// Check if prediction is in-flight.
-		// Start prediction
-		prediction, err := dg.twitchAPI.CreatePrediction("Dice Roll Prediction!", 120, []string{"Even", "Odd"})
-		if err != nil {
-			return err
-		}
-		// Start a countdown for rolling dice
-		go func() {
-			// Wait for timer
-			time.Sleep(121 * time.Second)
-			// roll dice
-			roll1 := dg.Dice[0].Roll()
-			roll2 := dg.Dice[1].Roll()
-			dg.ircClient.Say(channel, fmt.Sprintf("Dice #1: %d", roll1))
-			dg.ircClient.Say(channel, fmt.Sprintf("Dice #2: %d", roll2))
-			dg.ircClient.Say(channel, fmt.Sprintf("Total: %d", roll1+roll2))
-
-			// determine winner
-			winner := (roll1 + roll2) % 2
-			if winner == 0 {
-				// Even wins
-				for _, v := range prediction.Outcomes {
-					if v.Title == "Even" {
-						dg.twitchAPI.EndPrediction(prediction, v.ID)
-					}
-				}
-			} else {
-				// Odd wins
-				for _, v := range prediction.Outcomes {
-					if v.Title == "Odd" {
-						dg.twitchAPI.EndPrediction(prediction, v.ID)
-					}
-				}
-			}
-		}()
-	} else {
+	if !dg.CanRoll {
 		return errors.New("Roll is already in progress")
 	}
 
+	dg.rollCooldown.Reset(ROLL_COOLDOWN_RESET)
+	dg.CanRoll = false
+	fmt.Println("Executing startroll")
+	// Check if prediction is in-flight.
+	// Start prediction
+	prediction, err := dg.twitchAPI.CreatePrediction("Dice Roll Prediction!", 120, []string{"Even", "Odd"})
+	if err != nil {
+		return err
+	}
+	// Start a countdown for rolling dice
+	go func() {
+		// Wait for timer
+		time.Sleep(COUNTDOWN_TIMER)
+		// roll dice
+		total := dg.RollAll(channel)
+		dg.ircClient.Say(channel, fmt.Sprintf("Total: %d", total))
+
+		// determine winner
+		winner := total % 2
+		if winner == 0 {
+			// Even wins
+			dg.endPrediction(prediction, "Even")
+		} else {
+			// Odd wins
+			dg.endPrediction(prediction, "Odd")
+		}
+	}()
+
 	return nil
+}
+
+func (dg *DiceGame) endPrediction(prediction *twitch.TwitchPrediction, title string) {
+	for _, v := range prediction.Outcomes {
+		if v.Title == title {
+			dg.twitchAPI.EndPrediction(prediction, v.ID)
+		}
+	}
 }
