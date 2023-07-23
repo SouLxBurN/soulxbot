@@ -56,12 +56,11 @@ func InitDatabase() *Database {
 // Helper function to prepare, exec and close a query
 func prepareAndExec(db *sql.DB, query string) (err error) {
 	statement, err := db.Prepare(query)
+	defer statement.Close()
 	if err != nil {
 		return
 	}
-
 	statement.Exec()
-	statement.Close()
 
 	return
 }
@@ -69,7 +68,7 @@ func prepareAndExec(db *sql.DB, query string) (err error) {
 // InsertUser
 func (d *Database) InsertUser(id int, username string, displayName string) *User {
 	statement, err := d.db.Prepare(INSERT_USER)
-	func() { _ = statement.Close() }()
+	defer func() { _ = statement.Close() }()
 	if err != nil {
 		log.Println("Error preparing insert user statement: ", err)
 		return nil
@@ -91,7 +90,7 @@ func (d *Database) InsertUser(id int, username string, displayName string) *User
 // UpdateAPIKeyForUser
 func (d *Database) UpdateAPIKeyForUser(userId int, apiKey string) error {
 	statement, err := d.db.Prepare(UPDATE_APIKEY_BY_USERID)
-	func() { _ = statement.Close() }()
+	defer func() { _ = statement.Close() }()
 	if err != nil {
 		log.Println("Error preparing update api key statement: ", err)
 	}
@@ -296,7 +295,7 @@ func (d *Database) FindStreamById(streamId int) *Stream {
 // Inserts a new stream record with with most data as null
 func (d *Database) InsertStream(userId int, startedAt time.Time) *Stream {
 	statement, err := d.db.Prepare(INSERT_STREAM)
-	func() { _ = statement.Close() }()
+	defer func() { _ = statement.Close() }()
 	if err != nil {
 		log.Println("Error preparing insert stream statement: ", err)
 		return nil
@@ -324,7 +323,7 @@ func (d *Database) InsertStream(userId int, startedAt time.Time) *Stream {
 // UpdateFirstUser
 func (d *Database) UpdateFirstUser(streamId int, userId int) error {
 	statement, err := d.db.Prepare(UPDATE_FIRST_USER)
-	func() { _ = statement.Close() }()
+	defer func() { _ = statement.Close() }()
 	if err != nil {
 		log.Println("Error preparing update first user statement: ", err)
 		return err
@@ -347,7 +346,7 @@ func (d *Database) UpdateFirstUser(streamId int, userId int) error {
 
 func (d *Database) UpdateStreamEndedAt(streamId int, endedAt time.Time) error {
 	statement, err := d.db.Prepare(UPDATE_STREAM_ENDED)
-	func() { _ = statement.Close() }()
+	defer func() { _ = statement.Close() }()
 	if err != nil {
 		log.Println("Error preparing update stream endedAt statement: ", err)
 		return err
@@ -364,7 +363,7 @@ func (d *Database) UpdateStreamEndedAt(streamId int, endedAt time.Time) error {
 
 func (d *Database) UpdateStreamInfo(streamId int, twid int, title string) error {
 	statement, err := d.db.Prepare(UPDATE_STREAM_INFO)
-	func() { _ = statement.Close() }()
+	defer func() { _ = statement.Close() }()
 	if err != nil {
 		log.Println("Error preparing update stream info statement: ", err)
 		return err
