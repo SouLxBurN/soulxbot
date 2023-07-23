@@ -168,8 +168,10 @@ func main() {
 			case "qotd":
 				questionOfTheDay(stream, &message)
 			case "skipqotd":
-				AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Question of the day skipped"))
-				AppCtx.DataStore.UpdateStreamQuestion(stream.ID, nil)
+				if stream != nil && stream.UserId == messageUser.ID {
+					AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Question of the day skipped"))
+					AppCtx.DataStore.UpdateStreamQuestion(stream.ID, nil)
+				}
 			case "printall":
 				AppCtx.DataStore.FindAllUsers()
 			case "startroll":
