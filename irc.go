@@ -21,6 +21,8 @@ import (
 )
 
 const (
+	STREAM_TIMER = 5 * time.Minute
+
 	NOT_LIVE = iota
 	LIVE_NO_FIRST
 	LIVE_W_FIRST
@@ -114,7 +116,6 @@ func main() {
 
 		res.WriteHeader(http.StatusOK)
 		res.Write([]byte(guid))
-		return
 	})
 	go http.ListenAndServe(":8080", nil)
 
@@ -126,12 +127,13 @@ func main() {
 		messageUser := handleMessageUser(&message)
 		streamUser, ok := AppCtx.DataStore.FindUserByUsername(strings.ToLower(message.Channel))
 		if !ok {
+			// Should this return if it failed?
 			log.Printf("Unable to find stream user for twitch channel %s", message.Channel)
 		}
 		stream := AppCtx.DataStore.FindCurrentStream(streamUser.ID)
 
 		if isCommand(message.Message) {
-			command, input := parseCommand(message.Message)
+			command, input_args := parseCommand(message.Message)
 
 			switch command {
 			case "first":
@@ -156,20 +158,20 @@ func main() {
 					AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%d. %s - %d", i+1, v.User.DisplayName, v.TimesFirst))
 				}
 			case "firstgive":
-				if stream != nil && stream.UserId == messageUser.ID && len(input) > 0 {
-					targetUser, found := AppCtx.DataStore.FindUserByUsername(input)
+				if stream != nil && stream.UserId == messageUser.ID && len(input_args) == 1 {
+					targetUser, found := AppCtx.DataStore.FindUserByUsername(input_args[0])
 					if found {
 						AppCtx.DataStore.UpdateFirstUser(stream.ID, targetUser.ID)
 						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%s has been set as first for this stream!", targetUser.Username))
 					} else {
-						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("That user does not exist"))
+						AppCtx.ClientIRC.Say(message.Channel, "That user does not exist")
 					}
 				}
 			case "qotd":
 				questionOfTheDay(stream, &message)
 			case "skipqotd":
 				if stream != nil && stream.UserId == messageUser.ID {
-					AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Question of the day skipped"))
+					AppCtx.ClientIRC.Say(message.Channel, "Question of the day skipped")
 					AppCtx.DataStore.UpdateStreamQuestion(stream.ID, nil)
 				}
 			case "printall":
@@ -190,6 +192,7 @@ func main() {
 					for i := 0; i < 9; i++ {
 						buff.WriteString("%[1]s %[2]s %[3]s ")
 					}
+					// TODO: Allow user config raid message
 					AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf(buff.String(), "PowerUpL", "soulxbGASMShake", "PowerUpR"))
 				}
 			case "thanos":
@@ -237,7 +240,7 @@ func handleMessageUser(message *twitchirc.PrivateMessage) *db.User {
 
 // pollStreamStatus
 func pollStreamStatus(stream *db.Stream, streamUser *db.User) {
-	tick := time.NewTicker(5 * time.Minute)
+	tick := time.NewTicker(STREAM_TIMER)
 	for {
 		select {
 		case <-tick.C:
@@ -270,12 +273,12 @@ func isCommand(message string) bool {
 }
 
 // parseCommand
-func parseCommand(message string) (string, string) {
+func parseCommand(message string) (string, []string) {
 	split := strings.Split(message[1:], " ")
-	if len(split) >= 2 {
-		return split[0], split[1]
+	if len(split) > 1 {
+		return split[0], split[1:]
 	}
-	return split[0], ""
+	return split[0], make([]string, 0)
 }
 
 // isEligibleForFirst
