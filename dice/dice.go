@@ -39,7 +39,7 @@ func NewDice(sides int) *Dice {
 func NewDiceSlice(count int, sides int) []*Dice {
 	// Seeds once, rather than per-dice
 	rand.Seed(time.Now().UnixNano())
-	dice := make([]*Dice, count)
+	dice := make([]*Dice, 0, count)
 
 	for i := 0; i < count; i++ {
 		dice = append(dice, NewDice(sides))
