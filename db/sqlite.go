@@ -66,7 +66,11 @@ func prepareAndExec(db *sql.DB, query string) (err error) {
 	if err != nil {
 		return
 	}
-	statement.Exec()
+	_, err = statement.Exec()
+	if err != nil {
+		log.Println("Error executing statement: ", err)
+		return
+	}
 
 	return
 }
