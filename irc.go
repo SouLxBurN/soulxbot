@@ -173,7 +173,13 @@ func main() {
 					AppCtx.DataStore.UpdateStreamQuestion(stream.ID, nil)
 				}
 			case "printall":
-				AppCtx.DataStore.FindAllUsers()
+				if isSouLxBurN(streamUser.Username) {
+					users, err := AppCtx.DataStore.FindAllUsers()
+					if err != nil {
+						log.Println("Failed to find all users", err)
+					}
+					log.Printf("%v", users)
+				}
 			case "startroll":
 				if isSouLxBurN(streamUser.Username) {
 					if AppCtx.DiceGame.CanRoll {

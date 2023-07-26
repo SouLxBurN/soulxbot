@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"log"
-	"strconv"
 	"time"
 )
 
@@ -23,6 +22,9 @@ func InitDatabase() *Database {
 	if err != nil {
 		log.Println(err)
 	}
+	db := &Database{
+		db: database,
+	}
 
 	if prepareAndExec(database, enable_foreign_keys) != nil {
 		log.Println("Enable statement failed: ", err)
@@ -40,17 +42,21 @@ func InitDatabase() *Database {
 		log.Println("Prepared statement stream_table failed: ", err)
 	}
 
-	if prepareAndExec(database, questionSeed) != nil {
-		log.Println("prepared statement questionseed failed: ", err)
+	_, ok := db.FindQuestionByID(1)
+	if !ok {
+		if prepareAndExec(database, questionSeed) != nil {
+			log.Println("prepared statement questionseed failed: ", err)
+		}
 	}
 
-	if prepareAndExec(database, userSeed) != nil {
-		log.Println("Prepared statement questionSeed failed: ", err)
+	users, _ := db.FindAllUsers()
+	if len(users) == 0 {
+		if prepareAndExec(database, userSeed) != nil {
+			log.Println("Prepared statement questionSeed failed: ", err)
+		}
 	}
 
-	return &Database{
-		db: database,
-	}
+	return db
 }
 
 // Helper function to prepare, exec and close a query
@@ -191,19 +197,23 @@ func (d *Database) FindFirstLeaders(streamUser int, count int) ([]FirstLeadersRe
 }
 
 // FindAllUsers
-func (d *Database) FindAllUsers() {
+func (d *Database) FindAllUsers() ([]User, error) {
 	rows, err := d.db.Query(FIND_ALL_USERS)
 	defer func() { _ = rows.Close() }()
 	if err != nil {
 		log.Println("Error finding all users: ", err)
-		return
+		return nil, err
 	}
 
-	var user User
+	var users []User
 	for rows.Next() {
+		var user User
 		rows.Scan(&user.ID, &user.Username, &user.DisplayName)
-		log.Println(strconv.Itoa(user.ID) + " " + user.Username + " " + user.DisplayName)
+		users = append(users, user)
+		// log.Println(strconv.Itoa(user.ID) + " " + user.Username + " " + user.DisplayName)
 	}
+
+	return users, nil
 }
 
 // FindAllApiKeyUsers
