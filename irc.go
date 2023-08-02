@@ -1,20 +1,18 @@
 package main
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	twitchirc "github.com/gempir/go-twitch-irc/v2"
-	"github.com/google/uuid"
 	dotenv "github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/soulxburn/soulxbot/api"
 	"github.com/soulxburn/soulxbot/db"
 	"github.com/soulxburn/soulxbot/dice"
 	"github.com/soulxburn/soulxbot/twitch"
@@ -55,68 +53,9 @@ func main() {
 	AppCtx.ClientIRC = twitchirc.NewClient(user, oauth)
 	AppCtx.DiceGame = dice.NewDiceGame(AppCtx.ClientIRC, AppCtx.TwitchAPI)
 
-	// Restart any streams that were live when the bot was last shut down
-	streamsInProgress := AppCtx.DataStore.FindAllCurrentStreams()
-	for _, stream := range streamsInProgress {
-		user, ok := AppCtx.DataStore.FindUserByID(stream.UserId)
-		if ok {
-			go pollStreamStatus(&stream, user)
-		}
-	}
-	http.HandleFunc("/golive", func(res http.ResponseWriter, req *http.Request) {
-		params := req.URL.Query()
-		apiKey := params.Get("key")
-
-		user, ok := AppCtx.DataStore.FindUserByApiKey(apiKey)
-		stream := AppCtx.DataStore.FindCurrentStream(user.ID)
-
-		if ok && stream == nil {
-			log.Printf("%s is now live!", user.DisplayName)
-			stream = AppCtx.DataStore.InsertStream(user.ID, time.Now())
-			res.WriteHeader(http.StatusAccepted)
-			go pollStreamStatus(stream, user)
-		} else {
-			log.Println("Go live not authorized")
-			res.WriteHeader(http.StatusUnauthorized)
-		}
-	})
-
-	http.HandleFunc("/register", func(res http.ResponseWriter, req *http.Request) {
-		authHeader := req.Header.Get("Authorization")
-		split := strings.Split(authHeader, " ")
-		if split[0] != "Basic" || len(split) != 2 {
-			res.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		decoded, err := base64.StdEncoding.DecodeString(split[1])
-		if err != nil {
-			res.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
-		if basicAuth != string(decoded) {
-			res.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
-		params := req.URL.Query()
-		username := params.Get("username")
-		user, ok := AppCtx.DataStore.FindUserByUsername(username)
-		if !ok {
-			res.WriteHeader(http.StatusNotFound)
-			res.Write([]byte("User not found, have user chat in channel first"))
-			return
-		}
-
-		guid := uuid.New().String()
-		AppCtx.DataStore.UpdateAPIKeyForUser(user.ID, guid)
-
-		res.WriteHeader(http.StatusOK)
-		res.Write([]byte(guid))
-		return
-	})
-	go http.ListenAndServe(":8080", nil)
+	apiConfig := api.Config{BasicAuth: basicAuth}
+	httpApi := api.New(apiConfig, AppCtx.DataStore, AppCtx.TwitchAPI)
+	go httpApi.InitAPIAndListen()
 
 	AppCtx.ClientIRC.OnUserNoticeMessage(func(message twitchirc.UserNoticeMessage) {
 		fmt.Printf("Notice: %s\n", message.Message)
@@ -239,35 +178,6 @@ func handleMessageUser(message *twitchirc.PrivateMessage) *db.User {
 		log.Printf("New User Found!: %d, %s, %s", user.ID, user.Username, user.DisplayName)
 	}
 	return user
-}
-
-// pollStreamStatus
-func pollStreamStatus(stream *db.Stream, streamUser *db.User) {
-	tick := time.NewTicker(5 * time.Minute)
-	for {
-		select {
-		case <-tick.C:
-			streamInfo, err := AppCtx.TwitchAPI.GetStream(streamUser.Username)
-			if err != nil {
-				log.Println("Error fetching stream info: ", err)
-				continue
-			}
-
-			if stream.TWID == nil || stream.Title == nil {
-				twid, err := strconv.Atoi(streamInfo.ID)
-				if err == nil {
-					AppCtx.DataStore.UpdateStreamInfo(stream.ID, twid, streamInfo.Title)
-					stream = AppCtx.DataStore.FindStreamById(stream.ID)
-				}
-			}
-
-			if streamInfo == nil {
-				AppCtx.DataStore.UpdateStreamEndedAt(stream.ID, time.Now())
-				tick.Stop()
-				return
-			}
-		}
-	}
 }
 
 // isCommand
