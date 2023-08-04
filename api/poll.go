@@ -15,6 +15,10 @@ type StreamPoller struct {
 	twitchAPI twitch.ITwitchAPI
 }
 
+func NewStreamPoller(db *db.Database, twitchAPI twitch.ITwitchAPI) StreamPoller {
+	return StreamPoller{db, twitchAPI}
+}
+
 func (sp StreamPoller) goliveHandler(res http.ResponseWriter, req *http.Request) {
 	params := req.URL.Query()
 	apiKey := params.Get("key")

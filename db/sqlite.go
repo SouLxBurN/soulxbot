@@ -393,7 +393,7 @@ func (d *Database) UpdateStreamInfo(streamId int, twid int, title string) error 
 }
 
 // UpdateStreamQuestion
-func (d *Database) UpdateStreamQuestion(streamId int, questionId *int) error {
+func (d *Database) UpdateStreamQuestion(streamId int, questionId *int64) error {
 	statement, err := d.db.Prepare(UPDATE_STREAM_QUESTION)
 	if err != nil {
 		log.Println("Error preparing update stream question statement: ", err)
@@ -443,4 +443,31 @@ func (d *Database) FindRandomQuestion(streamId int) (*Question, error) {
 	rows.Scan(&question.ID, &question.Text)
 
 	return &question, nil
+}
+
+func (d *Database) CreateQuestion(text string) (*Question, error) {
+	rows, _ := d.db.Query(FIND_QUESTION_BY_TEXT, text)
+	defer func() { _ = rows.Close() }()
+	if rows.Next() {
+		return nil, errors.New("That question already exists")
+	}
+
+	statement, err := d.db.Prepare(INSERT_QUESTION)
+	if err != nil {
+		log.Println("Error preparing insert question statement: ", err)
+		return nil, err
+	}
+
+	result, err := statement.Exec(text)
+	if err != nil {
+		log.Printf("Error updating stream question for question(%s): %x\n", text, err)
+		return nil, err
+	}
+
+	newID, err := result.LastInsertId()
+
+	return &Question{
+		ID:   newID,
+		Text: text,
+	}, nil
 }

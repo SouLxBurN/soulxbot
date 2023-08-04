@@ -61,8 +61,8 @@ type Stream struct {
 }
 
 type Question struct {
-	ID   int
-	Text string
+	ID   int64  `json:"id"`
+	Text string `json:"text"`
 }
 
 const userSeed = `

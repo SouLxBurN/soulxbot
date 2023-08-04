@@ -114,6 +114,12 @@ FROM question
 WHERE id=?
 `
 
+const FIND_QUESTION_BY_TEXT string = `
+SELECT id, text
+FROM question
+WHERE text=?
+`
+
 const FIND_RANDOM_QUESTION string = `
 SELECT id, text
 FROM question

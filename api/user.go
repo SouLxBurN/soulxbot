@@ -1,29 +1,14 @@
 package api
 
 import (
-	"encoding/base64"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 )
 
 func (api *API) handleRegisterUser(res http.ResponseWriter, req *http.Request) {
-	authHeader := req.Header.Get("Authorization")
-	split := strings.Split(authHeader, " ")
-	if split[0] != "Basic" || len(split) != 2 {
-		res.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(split[1])
-	if err != nil {
-		res.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-
-	if api.config.BasicAuth != string(decoded) {
-		res.WriteHeader(http.StatusUnauthorized)
+	authenticated := api.AuthenticateRequest(res, req)
+	if !authenticated {
 		return
 	}
 
