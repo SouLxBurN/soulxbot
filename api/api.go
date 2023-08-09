@@ -34,7 +34,7 @@ func (api *API) InitAPIAndListen() error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/question/", api.getQuestion)
-	mux.HandleFunc("/question", api.createQuestion)
+	mux.HandleFunc("/question", api.handleQuestionWrites)
 	mux.HandleFunc("/register", api.handleRegisterUser)
 	mux.HandleFunc("/golive", poller.goliveHandler)
 

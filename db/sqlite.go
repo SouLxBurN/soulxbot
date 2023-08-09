@@ -453,8 +453,46 @@ func (d *Database) UpdateStreamQuestion(streamId int, questionId *int64) error {
 	return nil
 }
 
+func (d *Database) IncrementQuestionSkip(questionId *int64) error {
+	statement, err := d.db.Prepare(INCREMENT_QUESTION_SKIP)
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
+	if err != nil {
+		log.Println("Error preparing increment question skip statement: ", err)
+		return err
+	}
+
+	_, err = statement.Exec(questionId)
+	if err != nil {
+		log.Printf("Error incrementing question: %x\n", err)
+		return err
+	}
+
+	return nil
+}
+
+func (d *Database) DisableQuestion(questionId *int64) error {
+	statement, err := d.db.Prepare(DISABLE_QUESTION)
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
+	if err != nil {
+		log.Println("Error preparing disable question statement: ", err)
+		return err
+	}
+
+	_, err = statement.Exec(questionId)
+	if err != nil {
+		log.Printf("Error marking question as disabled: %x\n", err)
+		return err
+	}
+
+	return nil
+}
+
 // FindQuestionByID
-func (d *Database) FindQuestionByID(ID int) (*Question, bool) {
+func (d *Database) FindQuestionByID(ID int64) (*Question, bool) {
 	rows, _ := d.db.Query(FIND_QUESTION_BY_ID, ID)
 	defer func() { _ = rows.Close() }()
 	if !rows.Next() {

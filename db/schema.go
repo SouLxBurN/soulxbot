@@ -56,7 +56,7 @@ type Stream struct {
 	Title       *string
 	StartedAt   time.Time
 	EndedAt     *time.Time
-	QOTDId      *int
+	QOTDId      *int64
 	FirstUserId *int
 }
 
