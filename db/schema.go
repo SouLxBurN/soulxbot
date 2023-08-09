@@ -61,8 +61,10 @@ type Stream struct {
 }
 
 type Question struct {
-	ID   int64  `json:"id"`
-	Text string `json:"text"`
+	ID        int64  `json:"id"`
+	Text      string `json:"text"`
+	Disabled  bool   `json:"disabled"`
+	SkipCount int    `json:"skipCount"`
 }
 
 const userSeed = `

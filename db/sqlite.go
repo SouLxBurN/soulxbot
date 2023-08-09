@@ -26,59 +26,91 @@ func InitDatabase() *Database {
 		db: database,
 	}
 
-	if prepareAndExec(database, enable_foreign_keys) != nil {
+	if _, err := prepareAndExec(database, enable_foreign_keys); err != nil {
 		log.Println("Enable statement failed: ", err)
 	}
 
-	if prepareAndExec(database, user_table) != nil {
+	if _, err := prepareAndExec(database, user_table); err != nil {
 		log.Println("Prepared statement user_table failed: ", err)
 	}
 
-	if prepareAndExec(database, question_table) != nil {
+	if _, err := prepareAndExec(database, question_table); err != nil {
 		log.Println("Prepared statement question_table failed: ", err)
 	}
 
-	if prepareAndExec(database, stream_table) != nil {
+	if _, err := prepareAndExec(database, stream_table); err != nil {
 		log.Println("Prepared statement stream_table failed: ", err)
 	}
 
 	_, ok := db.FindQuestionByID(1)
 	if !ok {
-		if prepareAndExec(database, questionSeed) != nil {
+		if _, err := prepareAndExec(database, questionSeed); err != nil {
 			log.Println("prepared statement questionseed failed: ", err)
 		}
 	}
 
 	users, _ := db.FindAllUsers()
 	if len(users) == 0 {
-		if prepareAndExec(database, userSeed) != nil {
+		if _, err := prepareAndExec(database, userSeed); err != nil {
 			log.Println("Prepared statement questionSeed failed: ", err)
 		}
 	}
 
+	addQuestionDisabledColumn(database)
+
 	return db
 }
 
-// Helper function to prepare, exec and close a query
-func prepareAndExec(db *sql.DB, query string) (err error) {
-	statement, err := db.Prepare(query)
-	defer statement.Close()
+// Migration Script for adding disabled column to question table
+func addQuestionDisabledColumn(db *sql.DB) {
+	disableCheck := `SELECT count(*) as disabled FROM pragma_table_info('question') WHERE name = 'disabled';`
+	addDisabledColumn := `ALTER TABLE question ADD COLUMN disabled int default false`
+	addSkipCountColumn := `ALTER TABLE question ADD COLUMN skipCount int default 0`
+	rows, err := db.Query(disableCheck)
+	defer func() { _ = rows.Close() }()
 	if err != nil {
-		return
-	}
-	_, err = statement.Exec()
-	if err != nil {
-		log.Println("Error executing statement: ", err)
+		log.Println("question.disabled column check failed")
 		return
 	}
 
-	return
+	rows.Next()
+	var disabledPresent int
+	rows.Scan(&disabledPresent)
+	// Have to close the rows, otherwise database is locked.
+	rows.Close()
+	if disabledPresent == 0 {
+		if _, err := prepareAndExec(db, addDisabledColumn); err != nil {
+			log.Println("question.disabled column script failed: ", err)
+		}
+		if _, err := prepareAndExec(db, addSkipCountColumn); err != nil {
+			log.Println("question.disabled column script failed: ", err)
+		}
+	}
+}
+
+// Helper function to prepare, exec and close a query
+func prepareAndExec(db *sql.DB, query string) (sql.Result, error) {
+	statement, err := db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer statement.Close()
+
+	result, err := statement.Exec()
+	if err != nil {
+		log.Println("Error executing statement: ", err)
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // InsertUser
 func (d *Database) InsertUser(id int, username string, displayName string) *User {
 	statement, err := d.db.Prepare(INSERT_USER)
-	defer func() { _ = statement.Close() }()
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
 	if err != nil {
 		log.Println("Error preparing insert user statement: ", err)
 		return nil
@@ -100,7 +132,9 @@ func (d *Database) InsertUser(id int, username string, displayName string) *User
 // UpdateAPIKeyForUser
 func (d *Database) UpdateAPIKeyForUser(userId int, apiKey string) error {
 	statement, err := d.db.Prepare(UPDATE_APIKEY_BY_USERID)
-	defer func() { _ = statement.Close() }()
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
 	if err != nil {
 		log.Println("Error preparing update api key statement: ", err)
 	}
@@ -214,7 +248,6 @@ func (d *Database) FindAllUsers() ([]User, error) {
 		var user User
 		rows.Scan(&user.ID, &user.Username, &user.DisplayName)
 		users = append(users, user)
-		// log.Println(strconv.Itoa(user.ID) + " " + user.Username + " " + user.DisplayName)
 	}
 
 	return users, nil
@@ -309,7 +342,9 @@ func (d *Database) FindStreamById(streamId int) *Stream {
 // Inserts a new stream record with with most data as null
 func (d *Database) InsertStream(userId int, startedAt time.Time) *Stream {
 	statement, err := d.db.Prepare(INSERT_STREAM)
-	defer func() { _ = statement.Close() }()
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
 	if err != nil {
 		log.Println("Error preparing insert stream statement: ", err)
 		return nil
@@ -337,7 +372,9 @@ func (d *Database) InsertStream(userId int, startedAt time.Time) *Stream {
 // UpdateFirstUser
 func (d *Database) UpdateFirstUser(streamId int, userId int) error {
 	statement, err := d.db.Prepare(UPDATE_FIRST_USER)
-	defer func() { _ = statement.Close() }()
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
 	if err != nil {
 		log.Println("Error preparing update first user statement: ", err)
 		return err
@@ -360,7 +397,9 @@ func (d *Database) UpdateFirstUser(streamId int, userId int) error {
 
 func (d *Database) UpdateStreamEndedAt(streamId int, endedAt time.Time) error {
 	statement, err := d.db.Prepare(UPDATE_STREAM_ENDED)
-	defer func() { _ = statement.Close() }()
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
 	if err != nil {
 		log.Println("Error preparing update stream endedAt statement: ", err)
 		return err
@@ -377,7 +416,9 @@ func (d *Database) UpdateStreamEndedAt(streamId int, endedAt time.Time) error {
 
 func (d *Database) UpdateStreamInfo(streamId int, twid int, title string) error {
 	statement, err := d.db.Prepare(UPDATE_STREAM_INFO)
-	defer func() { _ = statement.Close() }()
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
 	if err != nil {
 		log.Println("Error preparing update stream info statement: ", err)
 		return err
@@ -395,6 +436,9 @@ func (d *Database) UpdateStreamInfo(streamId int, twid int, title string) error 
 // UpdateStreamQuestion
 func (d *Database) UpdateStreamQuestion(streamId int, questionId *int64) error {
 	statement, err := d.db.Prepare(UPDATE_STREAM_QUESTION)
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
 	if err != nil {
 		log.Println("Error preparing update stream question statement: ", err)
 		return err
@@ -418,7 +462,7 @@ func (d *Database) FindQuestionByID(ID int) (*Question, bool) {
 	}
 
 	var question Question
-	rows.Scan(&question.ID, &question.Text)
+	rows.Scan(&question.ID, &question.Text, &question.Disabled, &question.SkipCount)
 
 	return &question, true
 }
@@ -440,7 +484,7 @@ func (d *Database) FindRandomQuestion(streamId int) (*Question, error) {
 	}
 
 	var question Question
-	rows.Scan(&question.ID, &question.Text)
+	rows.Scan(&question.ID, &question.Text, &question.Disabled, &question.SkipCount)
 
 	return &question, nil
 }
@@ -453,6 +497,9 @@ func (d *Database) CreateQuestion(text string) (*Question, error) {
 	}
 
 	statement, err := d.db.Prepare(INSERT_QUESTION)
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
 	if err != nil {
 		log.Println("Error preparing insert question statement: ", err)
 		return nil, err
