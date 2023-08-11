@@ -107,12 +107,12 @@ func main() {
 			case "qotd":
 				questionOfTheDay(stream, &message)
 			case "skipqotd":
-				if stream != nil && stream.UserId == messageUser.ID {
-					if stream.QOTDId != nil {
-						AppCtx.DataStore.IncrementQuestionSkip(stream.QOTDId)
+				if stream != nil && stream.UserId == messageUser.ID && stream.QOTDId != nil {
+					if skipCount, _ := AppCtx.DataStore.IncrementQuestionSkip(*stream.QOTDId); skipCount > 2 {
+						AppCtx.DataStore.DisableQuestion(*stream.QOTDId)
 					}
 					AppCtx.DataStore.UpdateStreamQuestion(stream.ID, nil)
-					AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Question of the day skipped"))
+					AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Question of the day skipped, enter !qotd to get a new question"))
 				}
 			case "printall":
 				if isSouLxBurN(streamUser.Username) {

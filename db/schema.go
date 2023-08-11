@@ -56,12 +56,12 @@ type Stream struct {
 	Title       *string
 	StartedAt   time.Time
 	EndedAt     *time.Time
-	QOTDId      *int64
+	QOTDId      *int
 	FirstUserId *int
 }
 
 type Question struct {
-	ID        int64  `json:"id"`
+	ID        int    `json:"id"`
 	Text      string `json:"text"`
 	Disabled  bool   `json:"disabled"`
 	SkipCount int    `json:"skipCount"`

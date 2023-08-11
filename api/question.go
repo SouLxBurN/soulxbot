@@ -13,8 +13,8 @@ type QuestionRequestBody struct {
 }
 
 type QuestionPatchBody struct {
-	ID       int64 `json:"id"`
-	Disabled bool  `json:"disabled"`
+	ID       int  `json:"id"`
+	Disabled bool `json:"disabled"`
 }
 
 func (api *API) handleQuestionWrites(res http.ResponseWriter, req *http.Request) {
@@ -36,7 +36,7 @@ func (api *API) getQuestion(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	question, ok := api.db.FindQuestionByID(int64(id))
+	question, ok := api.db.FindQuestionByID(id)
 	if !ok {
 		res.WriteHeader(http.StatusNotFound)
 		res.Write([]byte("No question found with that id"))
@@ -67,7 +67,7 @@ func (api *API) patchQuestion(res http.ResponseWriter, req *http.Request) {
 	}
 
 	// TODO: Allow for ENABLING a disabled question
-	err = api.db.DisableQuestion(&body.ID)
+	err = api.db.DisableQuestion(body.ID)
 	if err != nil {
 		res.WriteHeader(http.StatusConflict)
 		res.Write([]byte(strings.TrimSpace(err.Error())))
