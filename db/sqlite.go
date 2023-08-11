@@ -27,24 +27,28 @@ func InitDatabase() *Database {
 	}
 
 	if _, err := prepareAndExec(database, enable_foreign_keys); err != nil {
-		log.Println("Enable statement failed: ", err)
+		log.Println("enable statement failed: ", err)
 	}
 
 	if _, err := prepareAndExec(database, user_table); err != nil {
-		log.Println("Prepared statement user_table failed: ", err)
+		log.Println("create user_table failed: ", err)
 	}
 
 	if _, err := prepareAndExec(database, question_table); err != nil {
-		log.Println("Prepared statement question_table failed: ", err)
+		log.Println("create question_table failed: ", err)
 	}
 
 	if _, err := prepareAndExec(database, stream_table); err != nil {
-		log.Println("Prepared statement stream_table failed: ", err)
+		log.Println("create stream_table failed: ", err)
 	}
 
 	seedQuestionData(database)
 	seedUserData(database)
 	addQuestionDisabledColumn(database)
+
+	if _, err := prepareAndExec(database, stream_config_table); err != nil {
+		log.Println("create stream_config_table failed: ", err)
+	}
 
 	return db
 }
@@ -65,7 +69,7 @@ func seedQuestionData(db *sql.DB) {
 	rows.Close()
 	if questionCount <= 0 {
 		if _, err := prepareAndExec(db, questionSeed); err != nil {
-			log.Println("prepared statement questionseed failed: ", err)
+			log.Println("questionseed failed: ", err)
 		}
 	}
 }
@@ -86,7 +90,7 @@ func seedUserData(db *sql.DB) {
 	rows.Close()
 	if userCount <= 0 {
 		if _, err := prepareAndExec(db, userSeed); err != nil {
-			log.Println("Prepared statement userSeed failed: ", err)
+			log.Println("userSeed failed: ", err)
 		}
 	}
 }
@@ -128,7 +132,6 @@ func prepareAndExec(db *sql.DB, query string) (sql.Result, error) {
 
 	result, err := statement.Exec()
 	if err != nil {
-		log.Println("Error executing statement: ", err)
 		return nil, err
 	}
 
@@ -586,4 +589,69 @@ func (d *Database) CreateQuestion(text string) (*Question, error) {
 		ID:   int(newID),
 		Text: text,
 	}, nil
+}
+
+func (d *Database) CreateStreamConfig(userId int) (*StreamConfig, error) {
+	statement, err := d.db.Prepare(CREATE_STREAM_CONFIG)
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
+	if err != nil {
+		log.Println("Error preparing insert stream config statement: ", err)
+		return nil, err
+	}
+
+	config := StreamConfig{
+		UserId:       userId,
+		BotDisabled:  true,
+		FirstEnabled: true,
+		FirstEpoch:   time.Now(),
+		QotdEnabled:  true,
+		QotdEpoch:    time.Now(),
+		DateUpdated:  time.Now(),
+	}
+
+	result, err := statement.Exec(
+		userId,
+		config.BotDisabled,
+		config.FirstEnabled,
+		config.FirstEpoch,
+		config.QotdEnabled,
+		config.QotdEpoch,
+		config.DateUpdated,
+	)
+	if err != nil {
+		log.Println("Error creating stream config", err)
+		return nil, err
+	}
+
+	newID, err := result.LastInsertId()
+	config.ID = int(newID)
+
+	return &config, nil
+}
+
+func (d *Database) FindUserStreamConfig(userId int) (*StreamConfig, error) {
+	rows, err := d.db.Query(FIND_STREAM_CONFIG_BY_USERID, userId)
+	defer func() { _ = rows.Close() }()
+	if err != nil {
+		log.Println("stream config query failed")
+		return nil, err
+	}
+
+	if !rows.Next() {
+		return nil, nil
+	}
+
+	var config StreamConfig
+	rows.Scan(&config.ID,
+		&config.UserId,
+		&config.BotDisabled,
+		&config.FirstEnabled,
+		&config.FirstEpoch,
+		&config.QotdEnabled,
+		&config.QotdEpoch,
+		&config.DateUpdated)
+
+	return &config, nil
 }

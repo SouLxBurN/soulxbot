@@ -42,11 +42,38 @@ CREATE TABLE IF NOT EXISTS question (
     text TEXT UNIQUE
     )`
 
+const stream_config_table = `
+CREATE TABLE IF NOT EXISTS stream_config (
+    id INTEGER PRIMARY KEY,
+    userId INTEGER UNIQUE,
+    botDisabled bool,
+    firstEnabled bool,
+    firstEpoch DATETIME,
+    qotdEnabled bool,
+    qotdEpoch DATETIME,
+    dateUpdated DATATIME,
+    FOREIGN KEY (userId)
+    REFERENCES user (id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+    )`
+
 type User struct {
 	ID          int
 	Username    string
 	DisplayName string
 	APIKey      *string
+}
+
+type StreamConfig struct {
+	ID           int
+	UserId       int
+	BotDisabled  bool
+	FirstEnabled bool
+	FirstEpoch   time.Time
+	QotdEnabled  bool
+	QotdEpoch    time.Time
+	DateUpdated  time.Time
 }
 
 type Stream struct {

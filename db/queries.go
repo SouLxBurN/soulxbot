@@ -140,3 +140,21 @@ UPDATE question
 SET skipCount = skipCount + 1
 WHERE id=?
 `
+
+const CREATE_STREAM_CONFIG string = `
+INSERT INTO stream_config (
+    userId,
+    botDisabled,
+    firstEnabled,
+    firstEpoch,
+    qotdEnabled,
+    qotdEpoch,
+    dateUpdated)
+VALUES(?,?,?,?,?,?,?)
+`
+
+const FIND_STREAM_CONFIG_BY_USERID string = `
+SELECT id, userId, botDisabled, firstEnabled, firstEpoch, qotdEnabled, qotdEpoch, dateUpdated
+FROM stream_config
+WHERE userId=?
+`
