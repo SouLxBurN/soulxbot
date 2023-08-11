@@ -42,23 +42,53 @@ func InitDatabase() *Database {
 		log.Println("Prepared statement stream_table failed: ", err)
 	}
 
+	seedQuestionData(database)
+	seedUserData(database)
 	addQuestionDisabledColumn(database)
 
-	_, ok := db.FindQuestionByID(1)
-	if !ok {
-		if _, err := prepareAndExec(database, questionSeed); err != nil {
+	return db
+}
+
+func seedQuestionData(db *sql.DB) {
+	questionCheck := `SELECT count(*) FROM question`
+	rows, err := db.Query(questionCheck)
+	defer func() { _ = rows.Close() }()
+	if err != nil {
+		log.Println("failed empty question check")
+		return
+	}
+
+	rows.Next()
+	var questionCount int
+	rows.Scan(&questionCount)
+	// Have to close the rows, otherwise database is locked.
+	rows.Close()
+	if questionCount <= 0 {
+		if _, err := prepareAndExec(db, questionSeed); err != nil {
 			log.Println("prepared statement questionseed failed: ", err)
 		}
 	}
+}
 
-	users, _ := db.FindAllUsers()
-	if len(users) == 0 {
-		if _, err := prepareAndExec(database, userSeed); err != nil {
-			log.Println("Prepared statement questionSeed failed: ", err)
-		}
+func seedUserData(db *sql.DB) {
+	userCheck := `SELECT count(*) FROM user`
+	rows, err := db.Query(userCheck)
+	defer func() { _ = rows.Close() }()
+	if err != nil {
+		log.Println("failed empty user check")
+		return
 	}
 
-	return db
+	rows.Next()
+	var userCount int
+	rows.Scan(&userCount)
+	// Have to close the rows, otherwise database is locked.
+	rows.Close()
+	if userCount <= 0 {
+		if _, err := prepareAndExec(db, userSeed); err != nil {
+			log.Println("Prepared statement userSeed failed: ", err)
+		}
+	}
 }
 
 // Migration Script for adding disabled column to question table
