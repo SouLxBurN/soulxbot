@@ -42,6 +42,8 @@ func InitDatabase() *Database {
 		log.Println("Prepared statement stream_table failed: ", err)
 	}
 
+	addQuestionDisabledColumn(database)
+
 	_, ok := db.FindQuestionByID(1)
 	if !ok {
 		if _, err := prepareAndExec(database, questionSeed); err != nil {
@@ -55,8 +57,6 @@ func InitDatabase() *Database {
 			log.Println("Prepared statement questionSeed failed: ", err)
 		}
 	}
-
-	addQuestionDisabledColumn(database)
 
 	return db
 }
