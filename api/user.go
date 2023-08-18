@@ -51,3 +51,4 @@ func (api *API) handleRegisterUser(res http.ResponseWriter, req *http.Request) {
 	res.Write([]byte(guid))
 	return
 }
+
