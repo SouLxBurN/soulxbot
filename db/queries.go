@@ -5,6 +5,12 @@ INSERT INTO user (id, username, displayName)
 VALUES (?, ?, ?)
 `
 
+const UPDATE_USERNAME string = `
+UPDATE user
+SET username=?, displayName=?
+WHERE id=?
+`
+
 const FIND_ALL_USERS string = `
 SELECT id, username, displayName
 FROM user

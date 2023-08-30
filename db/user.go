@@ -52,6 +52,23 @@ func (d *Database) InsertUser(id int, username string, displayName string) *User
 	}
 }
 
+// UpdateUserName
+func (d *Database) UpdateUserName(ID int, newUserName string, newDisplayName string) error {
+	statement, err := d.db.Prepare(UPDATE_USERNAME)
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
+	if err != nil {
+		return err
+	}
+
+	_, err = statement.Exec(newUserName, newDisplayName, ID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // FindAllUsers
 func (d *Database) FindAllUsers() ([]User, error) {
 	rows, err := d.db.Query(FIND_ALL_USERS)
