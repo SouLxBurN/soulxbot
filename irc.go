@@ -175,11 +175,22 @@ func handleMessageUser(message *twitchirc.PrivateMessage) *db.User {
 		log.Printf("Failed to convert twitch user id=%s to integer", message.User.ID)
 		return nil
 	}
-	user, ok := AppCtx.DataStore.FindUserByUsername(message.User.Name)
+
+	user, ok := AppCtx.DataStore.FindUserByID(messageUserId)
 	if !ok {
 		user = AppCtx.DataStore.InsertUser(messageUserId, message.User.Name, message.User.DisplayName)
 		log.Printf("New User Found!: %d, %s, %s", user.ID, user.Username, user.DisplayName)
 	}
+
+	if user.Username != message.User.Name {
+		if err := AppCtx.DataStore.UpdateUserName(user.ID, message.User.Name, message.User.DisplayName); err != nil {
+			log.Printf("Failed to update userId=%d, to new username=%s: %v", user.ID, message.User.Name, err)
+			return user
+		}
+		log.Printf("Updated Username Found! %d, %s to %s", user.ID, user.Username, message.User.Name)
+		user, _ = AppCtx.DataStore.FindUserByID(user.ID)
+	}
+
 	return user
 }
 
