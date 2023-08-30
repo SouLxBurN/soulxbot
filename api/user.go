@@ -21,13 +21,13 @@ func (api *API) handleRegisterUser(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	config, err := api.db.FindUserStreamConfig(user.ID)
+	streamUser, err := api.db.FindStreamUserByUserID(user.ID)
 	if err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		res.Write([]byte("Unable to register user"))
 		return
 	}
-	if config != nil {
+	if streamUser.StreamConfig.ID != 0 {
 		res.WriteHeader(http.StatusBadRequest)
 		res.Write([]byte("User is already registered"))
 		return
@@ -51,4 +51,3 @@ func (api *API) handleRegisterUser(res http.ResponseWriter, req *http.Request) {
 	res.Write([]byte(guid))
 	return
 }
-

@@ -189,7 +189,7 @@ func (d *Database) CreateStreamConfig(userId int) (*StreamConfig, error) {
 
 	config := StreamConfig{
 		UserId:       userId,
-		BotDisabled:  true,
+		BotDisabled:  false,
 		FirstEnabled: true,
 		FirstEpoch:   time.Now(),
 		QotdEnabled:  true,
@@ -217,12 +217,12 @@ func (d *Database) CreateStreamConfig(userId int) (*StreamConfig, error) {
 	return &config, nil
 }
 
-// FindUserStreamConfig
-func (d *Database) FindUserStreamConfig(userId int) (*StreamConfig, error) {
-	rows, err := d.db.Query(FIND_STREAM_CONFIG_BY_USERID, userId)
+// FindStreamUserByUserID
+func (d *Database) FindStreamUserByUserID(userId int) (*StreamUser, error) {
+	rows, err := d.db.Query(FIND_STREAM_USER_BY_USERID, userId)
 	defer func() { _ = rows.Close() }()
 	if err != nil {
-		log.Println("stream config query failed")
+		log.Println("stream user by id query failed")
 		return nil, err
 	}
 
@@ -230,8 +230,13 @@ func (d *Database) FindUserStreamConfig(userId int) (*StreamConfig, error) {
 		return nil, nil
 	}
 
+	var user User
 	var config StreamConfig
-	rows.Scan(&config.ID,
+	rows.Scan(
+		&user.ID,
+		&user.Username,
+		&user.DisplayName,
+		&config.ID,
 		&config.UserId,
 		&config.BotDisabled,
 		&config.FirstEnabled,
@@ -240,7 +245,44 @@ func (d *Database) FindUserStreamConfig(userId int) (*StreamConfig, error) {
 		&config.QotdEpoch,
 		&config.DateUpdated)
 
-	return &config, nil
+	return &StreamUser{
+		user,
+		config,
+	}, nil
+}
+
+// FindStreamUserByUsername
+func (d *Database) FindStreamUserByUserName(username string) (*StreamUser, error) {
+	rows, err := d.db.Query(FIND_STREAM_USER_BY_USERNAME, username)
+	if err != nil {
+		log.Println("stream user by username query failed")
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	if !rows.Next() {
+		return nil, nil
+	}
+
+	var user User
+	var config StreamConfig
+	rows.Scan(
+		&user.ID,
+		&user.Username,
+		&user.DisplayName,
+		&config.ID,
+		&config.UserId,
+		&config.BotDisabled,
+		&config.FirstEnabled,
+		&config.FirstEpoch,
+		&config.QotdEnabled,
+		&config.QotdEpoch,
+		&config.DateUpdated)
+
+	return &StreamUser{
+		user,
+		config,
+	}, nil
 }
 
 const user_table string = `

@@ -159,8 +159,14 @@ INSERT INTO stream_config (
 VALUES(?,?,?,?,?,?,?)
 `
 
-const FIND_STREAM_CONFIG_BY_USERID string = `
-SELECT id, userId, botDisabled, firstEnabled, firstEpoch, qotdEnabled, qotdEpoch, dateUpdated
-FROM stream_config
-WHERE userId=?
+const FIND_STREAM_USER_BY_USERID string = `
+SELECT u.id, u.username, u.displayName, sc.id, sc.userId, sc.botDisabled, sc.firstEnabled, sc.firstEpoch, sc.qotdEnabled, sc.qotdEpoch, sc.dateUpdated
+FROM user u, stream_config sc
+WHERE u.id = sc.userId AND userId=?
+`
+
+const FIND_STREAM_USER_BY_USERNAME string = `
+SELECT u.id, u.username, u.displayName, sc.id, sc.userId, sc.botDisabled, sc.firstEnabled, sc.firstEpoch, sc.qotdEnabled, sc.qotdEpoch, sc.dateUpdated
+FROM user u, stream_config sc
+WHERE u.id = sc.userId AND u.username=?
 `
