@@ -49,7 +49,7 @@ func (d *Database) FindAllCurrentStreams() []Stream {
 	}
 	var streams []Stream
 
-	if rows.Next() {
+	for rows.Next() {
 		var stream Stream
 		scanRowIntoStream(&stream, rows)
 		streams = append(streams, stream)

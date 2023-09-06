@@ -157,7 +157,7 @@ func main() {
 			}
 		}
 
-		if stream != nil && stream.FirstUserId == nil && isEligibleForFirst(stream, messageUser) {
+		if stream != nil && stream.FirstUserId == nil && isFirstEnabled(streamUser) && isEligibleForFirst(stream, messageUser) {
 			AppCtx.DataStore.UpdateFirstUser(stream.ID, messageUser.ID)
 			AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Congratulations %s! You're first!", message.User.DisplayName))
 		}

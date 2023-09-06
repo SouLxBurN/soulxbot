@@ -82,7 +82,7 @@ func (a *TwitchAPI) GetStream(user string) (*TwitchStreamInfo, error) {
 	}
 
 	if len(streams) <= 0 {
-		return nil, nil
+		return nil, errors.New("No stream info returned")
 	}
 
 	return streams[0], nil
