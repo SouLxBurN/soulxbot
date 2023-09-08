@@ -41,15 +41,17 @@ WHERE apiKey=?
 `
 
 const FIND_USER_TIMES_FIRST string = `
-SELECT count(id) as timesFirst
-FROM stream
-WHERE userId=? AND first_userId=?
+SELECT count(s.id) as timesFirst
+FROM stream s, stream_config sc
+WHERE s.userId=sc.userId AND s.userId=? AND s.first_userId=?
+    AND (s.endedAt>sc.firstEpoch OR s.endedAt IS NULL)
 `
 
 const FIND_TIMES_FIRST_LEADERS string = `
 SELECT u.id, u.username, u.displayName, count(u.id) as timesFirst
-FROM stream s, user u
-WHERE s.first_userId=u.id AND s.userId=?
+FROM stream s, stream_config sc, user u
+WHERE s.first_userId=u.id AND s.userId=sc.userId AND s.userId=?
+    AND (s.endedAt>sc.firstEpoch OR s.endedAt IS NULL)
 GROUP BY u.id
 ORDER BY timesFirst DESC
 LIMIT ?
@@ -169,4 +171,10 @@ const FIND_STREAM_USER_BY_USERNAME string = `
 SELECT u.id, u.username, u.displayName, sc.id, sc.userId, sc.botDisabled, sc.firstEnabled, sc.firstEpoch, sc.qotdEnabled, sc.qotdEpoch, sc.dateUpdated
 FROM user u, stream_config sc
 WHERE u.id = sc.userId AND u.username=?
+`
+
+const UPDATE_FIRST_EPOCH string = `
+UPDATE stream_config
+SET firstEpoch=?
+WHERE userId=?
 `

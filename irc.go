@@ -104,6 +104,11 @@ func main() {
 				for i, v := range leaders {
 					AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%d. %s - %d", i+1, v.User.DisplayName, v.TimesFirst))
 				}
+			case "firstleaders-reset":
+				if streamUser.User.ID == messageUser.ID {
+					AppCtx.DataStore.ResetFirstEpoch(stream.UserId)
+					AppCtx.ClientIRC.Say(message.Channel, "First leaders reset")
+				}
 			case "firstgive":
 				if stream != nil && stream.UserId == messageUser.ID && len(input) > 0 && isFirstEnabled(streamUser) {
 					targetUser, found := AppCtx.DataStore.FindUserByUsername(input)

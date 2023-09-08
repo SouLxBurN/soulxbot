@@ -285,6 +285,24 @@ func (d *Database) FindStreamUserByUserName(username string) (*StreamUser, error
 	}, nil
 }
 
+// ResetFirstEpoch
+func (d *Database) ResetFirstEpoch(userId int) error {
+	statement, err := d.db.Prepare(UPDATE_FIRST_EPOCH)
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
+	if err != nil {
+		log.Println("Error preparing update first epoch statement: ", err)
+	}
+
+	_, err = statement.Exec(time.Now(), userId)
+	if err != nil {
+		log.Println("Error resetting first epoch: ", err)
+	}
+
+	return nil
+}
+
 const user_table string = `
 CREATE TABLE IF NOT EXISTS user (
     id INTEGER PRIMARY KEY,
