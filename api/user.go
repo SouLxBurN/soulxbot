@@ -27,7 +27,7 @@ func (api *API) handleRegisterUser(res http.ResponseWriter, req *http.Request) {
 		res.Write([]byte("Unable to register user"))
 		return
 	}
-	if streamUser.StreamConfig.ID != 0 {
+	if streamUser != nil && streamUser.StreamConfig.ID != 0 {
 		res.WriteHeader(http.StatusBadRequest)
 		res.Write([]byte("User is already registered"))
 		return
@@ -46,7 +46,6 @@ func (api *API) handleRegisterUser(res http.ResponseWriter, req *http.Request) {
 		res.Write([]byte("Unable to register user"))
 		return
 	}
-
 	res.WriteHeader(http.StatusOK)
 	res.Write([]byte(guid))
 	return

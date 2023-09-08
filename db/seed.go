@@ -4,8 +4,22 @@ const userSeed = `
 INSERT INTO user (id, username, displayName, apiKey)
 VALUES
 (31568083,	"soulxburn", "SouLxBurN", "abcd1234"),
-(236797464,	"caleb_dev", "caleb_dev", null)
+(236797464,	"kinda_cringe_dev", "kinda_cringe_dev", "1234abcd")
 `
+const streamConfigSeed = `
+INSERT INTO stream_config (
+    userId,
+    botDisabled,
+    firstEnabled,
+    firstEpoch,
+    qotdEnabled,
+    qotdEpoch,
+    dateUpdated)
+VALUES
+(31568083,false,true,TIME(),true,TIME(),TIME()),
+(236797464,false,true,TIME(),true,TIME(),TIME())
+`
+
 const questionSeed = `
 INSERT INTO question(text)
 VALUES

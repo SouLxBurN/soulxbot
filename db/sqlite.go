@@ -37,13 +37,13 @@ func InitDatabase() *Database {
 		log.Println("create stream_table failed: ", err)
 	}
 
-	seedQuestionData(database)
-	seedUserData(database)
-	addQuestionDisabledColumn(database)
-
 	if _, err := prepareAndExec(database, stream_config_table); err != nil {
 		log.Println("create stream_config_table failed: ", err)
 	}
+
+	seedQuestionData(database)
+	seedUserData(database)
+	addQuestionDisabledColumn(database)
 
 	return db
 }
@@ -86,6 +86,9 @@ func seedUserData(db *sql.DB) {
 	if userCount <= 0 {
 		if _, err := prepareAndExec(db, userSeed); err != nil {
 			log.Println("userSeed failed: ", err)
+		}
+		if _, err := prepareAndExec(db, streamConfigSeed); err != nil {
+			log.Println("streamConfigSeed failed: ", err)
 		}
 	}
 }
