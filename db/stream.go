@@ -40,19 +40,19 @@ func (d *Database) FindCurrentStream(userId int) *Stream {
 }
 
 // FindAllCurrentStreams
-func (d *Database) FindAllCurrentStreams() []Stream {
+func (d *Database) FindAllCurrentStreams() []*Stream {
 	rows, err := d.db.Query(FIND_ALL_CURRENT_STREAMS)
 	defer func() { _ = rows.Close() }()
 	if err != nil {
 		log.Println("Error finding all current streams statement: ", err)
 		return nil
 	}
-	var streams []Stream
+	var streams []*Stream
 
 	for rows.Next() {
 		var stream Stream
 		scanRowIntoStream(&stream, rows)
-		streams = append(streams, stream)
+		streams = append(streams, &stream)
 	}
 	return streams
 }
@@ -89,33 +89,33 @@ func (d *Database) FindStreamById(streamId int) *Stream {
 
 // InsertStream
 // Inserts a new stream record with with most data as null
-func (d *Database) InsertStream(userId int, startedAt time.Time) *Stream {
+func (d *Database) InsertStream(userId int, startedAt time.Time) (*Stream, error) {
 	statement, err := d.db.Prepare(INSERT_STREAM)
 	if statement != nil {
 		defer func() { _ = statement.Close() }()
 	}
 	if err != nil {
 		log.Println("Error preparing insert stream statement: ", err)
-		return nil
+		return nil, err
 	}
 
 	result, err := statement.Exec(userId, startedAt)
 	if err != nil {
 		log.Println("Error inserting stream: ", err)
-		return nil
+		return nil, err
 	}
 
 	newID, err := result.LastInsertId()
 	if err != nil {
 		log.Println("Error retrieving last insert stream ID")
-		return nil
+		return nil, err
 	}
 
 	return &Stream{
 		ID:        int(newID),
 		UserId:    userId,
 		StartedAt: startedAt,
-	}
+	}, nil
 }
 
 // UpdateFirstUser

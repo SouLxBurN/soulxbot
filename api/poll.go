@@ -27,10 +27,18 @@ func (sp StreamPoller) goliveHandler(res http.ResponseWriter, req *http.Request)
 	stream := sp.db.FindCurrentStream(user.ID)
 
 	if ok && stream == nil {
-		log.Printf("%s is now live!", user.DisplayName)
-		stream = sp.db.InsertStream(user.ID, time.Now())
+		stream, err := sp.db.InsertStream(user.ID, time.Now())
+		if err != nil {
+			res.WriteHeader(http.StatusInternalServerError)
+			res.Write([]byte("Go live request failed"))
+			return
+		}
 		res.WriteHeader(http.StatusAccepted)
 		go sp.PollStreamStatus(stream, user)
+		log.Printf("%s is now live!", user.DisplayName)
+	} else if ok && stream != nil {
+		log.Printf("User %s, is already online", user.Username)
+		res.WriteHeader(http.StatusConflict)
 	} else {
 		log.Println("Go live not authorized")
 		res.WriteHeader(http.StatusUnauthorized)
@@ -45,8 +53,14 @@ func (sp StreamPoller) PollStreamStatus(stream *db.Stream, streamUser *db.User) 
 		case <-tick.C:
 			streamInfo, err := sp.twitchAPI.GetStream(streamUser.Username)
 			if err != nil {
-				log.Println("Error fetching stream info: ", err)
+				log.Println("Error fetching stream info: ", streamUser.Username, err)
 				continue
+			}
+
+			if streamInfo == nil {
+				sp.db.UpdateStreamEndedAt(stream.ID, time.Now())
+				tick.Stop()
+				return
 			}
 
 			if stream.TWID == nil || stream.Title == nil {
@@ -55,12 +69,6 @@ func (sp StreamPoller) PollStreamStatus(stream *db.Stream, streamUser *db.User) 
 					sp.db.UpdateStreamInfo(stream.ID, twid, streamInfo.Title)
 					stream = sp.db.FindStreamById(stream.ID)
 				}
-			}
-
-			if streamInfo == nil {
-				sp.db.UpdateStreamEndedAt(stream.ID, time.Now())
-				tick.Stop()
-				return
 			}
 		}
 	}
@@ -72,7 +80,7 @@ func (sp StreamPoller) RestartStreamStatusPolls() {
 	for _, stream := range streamsInProgress {
 		user, ok := sp.db.FindUserByID(stream.UserId)
 		if ok {
-			go sp.PollStreamStatus(&stream, user)
+			go sp.PollStreamStatus(stream, user)
 		}
 	}
 }
