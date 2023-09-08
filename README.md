@@ -1,7 +1,7 @@
 # SouLxBot Chatbot
 Twitch Chatbot that provides a first user to chat after going live feature, and an automated question of the day using `!qotd`.
 
-Lots of feature still to be developed and polished, this is still quite the _Work In Progress_.
+Lots of features still to be developed and polished, this is still quite the _Work In Progress_.
 
 ## Setup
 
@@ -37,7 +37,7 @@ In a browser goto the following, replacing the `{client_id}` with your app's `cl
 You will want to auth with the twitch channel you want to test with.
 The `channel:manage:predictions` is needed for the dice game predictions.
 ```
-https://id.twitch.tv/oauth2/authorize?client_id={client_id}&redirect_uri=http%3A%2F%2Flocalhost&response_type=code&scope=channel%3Amanage%3Apredictions
+curl "https://id.twitch.tv/oauth2/authorize?client_id={client_id}&redirect_uri=http%3A%2F%2Flocalhost&response_type=code&scope=channel%3Amanage%3Apredictions"
 ```
 
 This will redirect you to your app's redirect uri, and the redirect url will look similar to:
@@ -51,7 +51,7 @@ Extract the `{user_code}` the code that is returned. You will need it in the nex
 Send a `POST` request to the URL below, replacing `{client_id}`, `{client_secret}`, and `{user_code}` with the code you just obtained above.
 
 ```
-POST https://id.twitch.tv/oauth2/token?client_id={client_id}&client_secret={client_secret}&code={user_code}&grant_type=authorization_code&redirect_uri=http%3A%2F%2Flocalhost
+curl -X POST "https://id.twitch.tv/oauth2/token?client_id={client_id}&client_secret={client_secret}&code={user_code}&grant_type=authorization_code&redirect_uri=http%3A%2F%2Flocalhost"
 ```
 
 You should get a response similar to:
@@ -74,8 +74,10 @@ SOULXBOT_REFRESHTOKEN=
 ### Running The Bot
 - Start the bot locally by running `go run .`
 - The bot has a web server running on port `8080`.
-    - Use `http://localhost:8080/register?username={stream_user}`, to register a user to have the bot join that stream's channel.
-        This will return an API key in order to inform the bot that the user has gone live.
+    - Use the `/register` endpoint, to register a user to have the bot join that stream's channel.
+        This endpoint uses basic auth, the credentials are set with the environment variable `SOULXBOT_BASICAUTH` which defaults to `soulxbot:123456`.
+        Example: `curl -H "Authorization: Basic c291bHhib3Q6MTIzNDU2" http://localhost:8080/register?username={stream_user}`
+        This will return an API key that is used with the `/golive` endpoint to inform the bot that the user has gone live.
     - ⚠️ Currently, the bot will need to see the user say something in chat somewhere before it can successfully register them. _(Bug 9/6/23)_
     - ⚠️ After registering, you will need to restart the bot in order for it to join the newly registered user's channel. _(Bug 9/6/23)_
     - Inform the bot that a stream has gone live! `http://localhost:8080/golive?key={api_key}` with the API key returned from the `/register` endpoint.
