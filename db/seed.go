@@ -16,8 +16,8 @@ INSERT INTO stream_config (
     qotdEpoch,
     dateUpdated)
 VALUES
-(31568083,false,true,TIME(),true,TIME(),TIME()),
-(236797464,false,true,TIME(),true,TIME(),TIME())
+(31568083,false,true,DATETIME(),true,DATETIME(),DATETIME()),
+(236797464,false,true,DATETIME(),true,DATETIME(),DATETIME())
 `
 
 const questionSeed = `
