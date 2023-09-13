@@ -20,6 +20,11 @@ VALUES
 (236797464,false,true,DATETIME(),true,DATETIME(),DATETIME())
 `
 
+const migrateConfigs = `
+INSERT INTO stream_config(userId, botDisabled, firstEnabled, firstEpoch, qotdEnabled, qotdEpoch, dateUpdated)
+SELECT u.id, false, true, '0001-01-01 00:00:00', true, '0001-01-01 00:00:00', datetime() FROM user u WHERE apiKey IS NOT NULL;
+`
+
 const questionSeed = `
 INSERT INTO question(text)
 VALUES

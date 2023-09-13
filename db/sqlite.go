@@ -41,11 +41,35 @@ func InitDatabase() *Database {
 		log.Println("create stream_config_table failed: ", err)
 	}
 
+	migrateExistingStreamUsers(database)
+
 	seedQuestionData(database)
 	seedUserData(database)
 	addQuestionDisabledColumn(database)
 
 	return db
+}
+
+func migrateExistingStreamUsers(db *sql.DB) {
+	check := `SELECT count(*) FROM stream_config`
+	rows, err := db.Query(check)
+	defer func() { _ = rows.Close() }()
+	if err != nil {
+		log.Println("failed empty question check")
+		return
+	}
+
+	rows.Next()
+	var config_count int
+	rows.Scan(&config_count)
+	// Have to close the rows, otherwise database is locked.
+	rows.Close()
+
+	if config_count <= 0 {
+		if _, err := prepareAndExec(db, migrateConfigs); err != nil {
+			log.Println("stream_config migrate failed: ", err)
+		}
+	}
 }
 
 func seedQuestionData(db *sql.DB) {
