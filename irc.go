@@ -54,7 +54,7 @@ func main() {
 	AppCtx.DiceGame = dice.NewDiceGame(AppCtx.ClientIRC, AppCtx.TwitchAPI)
 
 	apiConfig := api.Config{BasicAuth: basicAuth}
-	httpApi := api.New(apiConfig, AppCtx.DataStore, AppCtx.TwitchAPI)
+	httpApi := api.New(apiConfig, AppCtx.DataStore, AppCtx.TwitchAPI, AppCtx.ClientIRC)
 	go httpApi.InitAPIAndListen()
 
 	// I don't think I've ever seen this used.

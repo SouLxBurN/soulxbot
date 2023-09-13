@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	twitchirc "github.com/gempir/go-twitch-irc/v2"
 	"github.com/soulxburn/soulxbot/db"
 	"github.com/soulxburn/soulxbot/twitch"
 )
@@ -17,13 +18,15 @@ type API struct {
 	config    Config
 	db        *db.Database
 	twitchAPI twitch.ITwitchAPI
+	twitchIRC *twitchirc.Client
 }
 
-func New(config Config, database *db.Database, twitchAPI twitch.ITwitchAPI) *API {
+func New(config Config, database *db.Database, twitchAPI twitch.ITwitchAPI, twitchIRC *twitchirc.Client) *API {
 	return &API{
 		config:    config,
 		db:        database,
 		twitchAPI: twitchAPI,
+		twitchIRC: twitchIRC, // Do we really want to wire the IRC client into the API client?
 	}
 }
 

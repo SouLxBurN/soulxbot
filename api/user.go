@@ -48,5 +48,7 @@ func (api *API) handleRegisterUser(res http.ResponseWriter, req *http.Request) {
 	}
 	res.WriteHeader(http.StatusOK)
 	res.Write([]byte(guid))
+
+	api.twitchIRC.Join(username)
 	return
 }
