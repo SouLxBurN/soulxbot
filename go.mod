@@ -1,6 +1,6 @@
 module github.com/soulxburn/soulxbot
 
-go 1.16
+go 1.21
 
 require (
 	github.com/gempir/go-twitch-irc/v2 v2.8.1
