@@ -73,7 +73,7 @@ func main() {
 		ClientIRC: AppCtx.ClientIRC,
 	}
 
-	commands := make(map[string]func(irc.MessageContext, string))
+	commands := make(map[string]irc.CommandHandler)
 	cmds := append(
 		questionCommands.GetCommands(),
 		firstCommands.GetCommands()...,
@@ -105,18 +105,10 @@ func main() {
 			command, input := parseCommand(message.Message)
 			cmd, ok := commands[command]
 			if ok {
-				cmd(msgCtx, input)
+				cmd(msgCtx, strings.TrimSuffix(command, "-dev"), input)
 			} else {
 				// This is all deprecated
 				switch command {
-				case "printall":
-					if isSouLxBurN(streamUser.Username) {
-						users, err := AppCtx.DataStore.FindAllUsers()
-						if err != nil {
-							log.Println("Failed to find all users", err)
-						}
-						log.Printf("%v", users)
-					}
 				case "startroll":
 					if isSouLxBurN(streamUser.Username) {
 						if AppCtx.DiceGame.CanRoll {

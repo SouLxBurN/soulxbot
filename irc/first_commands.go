@@ -18,14 +18,16 @@ func (q *FirstCommands) GetCommands() []Command {
 	commands := []Command{
 		{"first", q.first},
 		{"firstcount", q.firstcount},
+		{"firstcount-all", q.firstcount},
 		{"firstleaders", q.firstleaders},
+		{"firstleaders-all", q.firstleaders},
 		{"firstleaders-reset", q.firstleadersReset},
 		{"firstgive", q.firstgive},
 	}
 	return commands
 }
 
-func (q *FirstCommands) first(msgCtx MessageContext, input string) {
+func (q *FirstCommands) first(msgCtx MessageContext, command string, input string) {
 	if !IsFirstEnabled(msgCtx.StreamUser) {
 		return
 	}
@@ -39,11 +41,11 @@ func (q *FirstCommands) first(msgCtx MessageContext, input string) {
 	}
 }
 
-func (q *FirstCommands) firstcount(msgCtx MessageContext, input string) {
+func (q *FirstCommands) firstcount(msgCtx MessageContext, command string, input string) {
 	if !IsFirstEnabled(msgCtx.StreamUser) {
 		return
 	}
-	timesFirst, err := q.DataStore.FindUserTimesFirst(msgCtx.StreamUser.User.ID, msgCtx.MessageUser.ID)
+	timesFirst, err := q.DataStore.FindUserTimesFirst(msgCtx.StreamUser.User.ID, msgCtx.MessageUser.ID, command == "firstcount-all")
 	if err != nil {
 		log.Println(err)
 		return
@@ -51,24 +53,24 @@ func (q *FirstCommands) firstcount(msgCtx MessageContext, input string) {
 	q.ClientIRC.Say(msgCtx.Channel, fmt.Sprintf("%s, you have been first %d times", msgCtx.MessageUser.DisplayName, timesFirst))
 }
 
-func (q *FirstCommands) firstleaders(msgCtx MessageContext, input string) {
+func (q *FirstCommands) firstleaders(msgCtx MessageContext, command string, input string) {
 	if !IsFirstEnabled(msgCtx.StreamUser) {
 		return
 	}
-	leaders, _ := q.DataStore.FindFirstLeaders(msgCtx.StreamUser.User.ID, 3)
+	leaders, _ := q.DataStore.FindFirstLeaders(msgCtx.StreamUser.User.ID, 3, command == "firstleaders-all")
 	for i, v := range leaders {
 		q.ClientIRC.Say(msgCtx.Channel, fmt.Sprintf("%d. %s - %d", i+1, v.User.DisplayName, v.TimesFirst))
 	}
 }
 
-func (q *FirstCommands) firstleadersReset(msgCtx MessageContext, input string) {
+func (q *FirstCommands) firstleadersReset(msgCtx MessageContext, command string, input string) {
 	if msgCtx.StreamUser.User.ID == msgCtx.MessageUser.ID {
 		q.DataStore.ResetFirstEpoch(msgCtx.Stream.UserId)
 		q.ClientIRC.Say(msgCtx.Channel, "First leaders reset")
 	}
 }
 
-func (q *FirstCommands) firstgive(msgCtx MessageContext, input string) {
+func (q *FirstCommands) firstgive(msgCtx MessageContext, command string, input string) {
 	if msgCtx.Stream != nil && msgCtx.Stream.UserId == msgCtx.MessageUser.ID && len(input) > 0 && IsFirstEnabled(msgCtx.StreamUser) {
 		targetUser, found := q.DataStore.FindUserByUsername(input)
 		if found {

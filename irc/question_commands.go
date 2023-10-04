@@ -7,9 +7,11 @@ import (
 	"github.com/soulxburn/soulxbot/db"
 )
 
+type CommandHandler = func(MessageContext, string, string)
+
 type Command struct {
 	CmdString string
-	Cmd       func(MessageContext, string)
+	Cmd       CommandHandler
 }
 
 type MessageContext struct {
@@ -32,14 +34,14 @@ func (q *QuestionCommands) GetCommands() []Command {
 	return commands
 }
 
-func (q *QuestionCommands) qotd(msgCtx MessageContext, input string) {
+func (q *QuestionCommands) qotd(msgCtx MessageContext, command string, input string) {
 	if msgCtx.Stream != nil && msgCtx.StreamUser != nil && msgCtx.StreamUser.QotdEnabled {
 		question := questionOfTheDay(q.DataStore, msgCtx.Stream)
 		q.ClientIRC.Say(msgCtx.Channel, fmt.Sprintf("%s", question.Text))
 	}
 }
 
-func (q *QuestionCommands) skipqotd(msgCtx MessageContext, input string) {
+func (q *QuestionCommands) skipqotd(msgCtx MessageContext, command string, input string) {
 	if msgCtx.Stream != nil &&
 		msgCtx.Stream.UserId == msgCtx.MessageUser.ID &&
 		msgCtx.Stream.QOTDId != nil &&

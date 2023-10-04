@@ -47,11 +47,26 @@ WHERE s.userId=sc.userId AND s.userId=? AND s.first_userId=?
     AND (s.endedAt>sc.firstEpoch OR s.endedAt IS NULL)
 `
 
+const FIND_USER_TIMES_FIRST_ALL string = `
+SELECT count(s.id) as timesFirst
+FROM stream s
+WHERE s.userId=? AND s.first_userId=?
+`
+
 const FIND_TIMES_FIRST_LEADERS string = `
 SELECT u.id, u.username, u.displayName, count(u.id) as timesFirst
 FROM stream s, stream_config sc, user u
 WHERE s.first_userId=u.id AND s.userId=sc.userId AND s.userId=?
     AND (s.endedAt>sc.firstEpoch OR s.endedAt IS NULL)
+GROUP BY u.id
+ORDER BY timesFirst DESC
+LIMIT ?
+`
+
+const FIND_TIMES_FIRST_LEADERS_ALL string = `
+SELECT u.id, u.username, u.displayName, count(u.id) as timesFirst
+FROM stream s, user u
+WHERE s.first_userId=u.id AND s.userId=?
 GROUP BY u.id
 ORDER BY timesFirst DESC
 LIMIT ?

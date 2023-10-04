@@ -203,8 +203,13 @@ func (d *Database) UpdateStreamQuestion(streamId int, questionId *int) error {
 }
 
 // FindFirstLeaders
-func (d *Database) FindFirstLeaders(streamUser int, count int) ([]FirstLeadersResult, error) {
-	rows, err := d.db.Query(FIND_TIMES_FIRST_LEADERS, streamUser, count)
+func (d *Database) FindFirstLeaders(streamUser int, count int, all bool) ([]FirstLeadersResult, error) {
+	rows, err := func() (*sql.Rows, error) {
+		if all {
+			return d.db.Query(FIND_TIMES_FIRST_LEADERS_ALL, streamUser, count)
+		}
+		return d.db.Query(FIND_TIMES_FIRST_LEADERS, streamUser, count)
+	}()
 	defer func() { _ = rows.Close() }()
 	if err != nil {
 		log.Println("Error finding first leaders: ", err)
@@ -223,8 +228,13 @@ func (d *Database) FindFirstLeaders(streamUser int, count int) ([]FirstLeadersRe
 }
 
 // FindUserTimesFirst
-func (d *Database) FindUserTimesFirst(streamUserId int, userId int) (int, error) {
-	rows, err := d.db.Query(FIND_USER_TIMES_FIRST, streamUserId, userId)
+func (d *Database) FindUserTimesFirst(streamUserId int, userId int, all bool) (int, error) {
+	rows, err := func() (*sql.Rows, error) {
+		if all {
+			return d.db.Query(FIND_USER_TIMES_FIRST_ALL, streamUserId, userId)
+		}
+		return d.db.Query(FIND_USER_TIMES_FIRST, streamUserId, userId)
+	}()
 	defer func() { _ = rows.Close() }()
 	if err != nil {
 		log.Println("Error finding first count: ", err)
