@@ -79,13 +79,11 @@ func main() {
 		firstCommands.GetCommands()...,
 	)
 
-	dev := "-dev"
-	if env == "prod" {
-		dev = ""
-	}
-
-	for _, c := range cmds {
-		commands[c.CmdString+dev] = c.Cmd
+	if env != "prod" {
+		dev := "-dev"
+		for _, c := range cmds {
+			commands[c.CmdString+dev] = c.Cmd
+		}
 	}
 
 	AppCtx.ClientIRC.OnPrivateMessage(func(message twitchirc.PrivateMessage) {
