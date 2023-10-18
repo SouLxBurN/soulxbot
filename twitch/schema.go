@@ -78,3 +78,31 @@ type TwitchStreamInfo struct {
 	TagIDs       []string  `json:"tag_ids"`
 	IsMature     bool      `json:"is_mature"`
 }
+
+type TwitchUsersResponse struct {
+	Data []*TwitchUserInfo `json:"data"`
+}
+
+type TwitchUserInfo struct {
+	Id              string `json:"id"`
+	Login           string `json:"login"`
+	DisplayName     string `json:"display_name"`
+	Type            string `json:"type"`
+	BroadcasterType string `json:"broadcaster_type"`
+	Description     string `json:"description"`
+	ProfileImageUrl string `json:"profile_image_url"`
+	OfflineImageUrl string `json:"offline_image_url"`
+	ViewCount       int    `json:"view_count"`
+	Email           string `json:"email"`
+	CreatedAt       string `json:"string"`
+}
+
+type BanUserRequest struct {
+	Data TwitchBanUserRequestData `json:"data"`
+}
+
+type TwitchBanUserRequestData struct {
+	UserID   string `json:"user_id"`
+	Duration int    `json:"duration,omitempty"`
+	Reason   string `json:"reason,omitempty"`
+}

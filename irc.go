@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -128,7 +129,10 @@ func main() {
 						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf(buff.String(), "PowerUpL", "soulxbGASMShake", "PowerUpR"))
 					}
 				case "thanos":
-					thanos(&message)
+					err := thanos(streamUser, &message)
+					if err != nil {
+						log.Println(err)
+					}
 				}
 			}
 		}
@@ -147,7 +151,9 @@ func main() {
 		log.Fatal("Failed to fetch registered users", err)
 	}
 
+	var usernames []string
 	for _, user := range registeredUsers {
+		usernames = append(usernames, user.Username)
 		AppCtx.ClientIRC.Join(user.Username)
 	}
 
@@ -201,25 +207,43 @@ func isSouLxBurN(username string) bool {
 	return strings.ToLower(username) == "soulxburn"
 }
 
-func thanos(message *twitchirc.PrivateMessage) error {
+func thanos(streamUser *db.StreamUser, message *twitchirc.PrivateMessage) error {
 	if !isSouLxBurN(message.User.DisplayName) && !isSouLxBurN(message.Channel) {
 		return errors.New("You are not Thanos")
 	}
-	users, err := AppCtx.ClientIRC.Userlist(message.Channel)
+	usernames, err := AppCtx.ClientIRC.Userlist(message.Channel)
 	if err != nil {
 		log.Println("Thanos was unable to fetch the user list")
 		return err
 	}
-	theChosen := []string{}
-	for i, usr := range users {
-		if i%2 == 0 {
-			theChosen = append(theChosen, usr)
-		}
-	}
 
-	for _, usr := range theChosen {
-		AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("/timeout %s 60 *SNAP*", usr))
-		time.Sleep(time.Millisecond * 500)
+	for len(usernames) > 0 {
+		chunksize := len(usernames)
+		if chunksize > 100 {
+			chunksize = 100
+		}
+		chunk := usernames[:chunksize]
+		usernames = usernames[chunksize:]
+
+		userInfoList, err := AppCtx.TwitchAPI.GetUsers(chunk)
+		if err != nil {
+			continue
+		}
+
+		rand.Shuffle(len(userInfoList), func(i, j int) { userInfoList[i], userInfoList[j] = userInfoList[j], userInfoList[i] })
+		theChosen := []*twitch.TwitchUserInfo{}
+
+		for i, usr := range userInfoList {
+			if i%2 == 0 {
+				theChosen = append(theChosen, usr)
+			}
+		}
+
+		for _, usr := range theChosen {
+			AppCtx.TwitchAPI.TimeoutUser(fmt.Sprint(streamUser.User.ID), usr.Id, 60, "*SNAP*")
+			fmt.Printf("Timed Out: %s\n", usr.DisplayName)
+			time.Sleep(time.Millisecond * 200)
+		}
 	}
 	return nil
 }

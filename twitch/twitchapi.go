@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 )
@@ -12,16 +13,20 @@ import (
 const (
 	TWITCH_HELIX_API = "https://api.twitch.tv/helix"
 	TWITCH_OAUTH_API = "https://id.twitch.tv/oauth2"
+	BANS             = "/moderation/bans"
 	TOKEN            = "/token"
 	PREDICTIONS      = "/predictions"
 	STREAMS          = "/streams"
+	USERS            = "/users"
 	VALIDATE         = "/validate"
 )
 
 type ITwitchAPI interface {
 	GetStream(string) (*TwitchStreamInfo, error)
+	GetUsers([]string) ([]*TwitchUserInfo, error)
 	CreatePrediction(string, int, []string) (*TwitchPrediction, error)
 	EndPrediction(*TwitchPrediction, string) error
+	TimeoutUser(string, string, int, string) error
 }
 
 type TwitchAPI struct {
@@ -63,13 +68,10 @@ func (a *TwitchAPI) GetStream(user string) (*TwitchStreamInfo, error) {
 		return nil, err
 	}
 	defer response.Body.Close()
-
-	if response.ContentLength <= 0 {
-		return nil, errors.New("Error fetching stream info, Unexpected content length")
+	respBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
 	}
-
-	respBody := make([]byte, response.ContentLength)
-	response.Body.Read(respBody)
 
 	data := new(TwitchDataResponse)
 	if err := json.Unmarshal(respBody, data); err != nil {
@@ -86,6 +88,51 @@ func (a *TwitchAPI) GetStream(user string) (*TwitchStreamInfo, error) {
 	}
 
 	return streams[0], nil
+}
+
+// Get up to 100 users from twitch based on a list of twitch usernames
+func (a *TwitchAPI) GetUsers(usernames []string) ([]*TwitchUserInfo, error) {
+	authToken, err := a.getAuthToken()
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest("GET", TWITCH_HELIX_API+USERS, bytes.NewReader([]byte{}))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
+	req.Header.Add("Client-Id", a.clientID)
+
+	q := req.URL.Query()
+	for _, u := range usernames {
+		q.Add("login", u)
+	}
+	req.URL.RawQuery = q.Encode()
+
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		if response != nil {
+			response.Body.Close()
+		}
+		return nil, err
+	}
+	if response.StatusCode != 200 {
+		log.Printf("GetUsers returned non-200 status: %s", response.Status)
+	}
+	defer response.Body.Close()
+	respBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	data := new(TwitchUsersResponse)
+	if err := json.Unmarshal(respBody, data); err != nil {
+		return nil, err
+	}
+
+	users := data.Data
+	if len(users) <= 0 {
+		return nil, nil
+	}
+
+	return users, nil
 }
 
 // CreatePrediction
@@ -181,6 +228,47 @@ func (a *TwitchAPI) EndPrediction(prediction *TwitchPrediction, winningID string
 	json.Unmarshal(respBody, predictionResp)
 
 	log.Println(response)
+
+	return nil
+}
+
+func (a *TwitchAPI) TimeoutUser(streamerID string, userID string, duration int, reason string) error {
+	requestBody := BanUserRequest{
+		Data: TwitchBanUserRequestData{userID, duration, reason},
+	}
+
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		return err
+	}
+
+	authToken, err := a.getAuthToken()
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, TWITCH_HELIX_API+BANS, bytes.NewReader(body))
+	req.Header.Add("content-type", "application/json")
+	req.Header.Add("Client-Id", a.clientID)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+
+	q := req.URL.Query()
+	q.Add("broadcaster_id", streamerID)
+	q.Add("moderator_id", streamerID)
+	req.URL.RawQuery = q.Encode()
+
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		if response != nil && response.Body != nil {
+			response.Body.Close()
+		}
+		return err
+	}
+	if response.StatusCode != 200 {
+		body, _ := io.ReadAll(response.Body)
+		log.Printf("Timeout user returned non-200 status %s | %s", response.Status, body)
+	}
+	defer response.Body.Close()
 
 	return nil
 }
