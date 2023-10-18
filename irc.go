@@ -1,10 +1,8 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -60,7 +58,6 @@ func main() {
 	httpApi := api.New(apiConfig, AppCtx.DataStore, AppCtx.TwitchAPI, AppCtx.ClientIRC)
 	go httpApi.InitAPIAndListen()
 
-	// I don't think I've ever seen this used.
 	AppCtx.ClientIRC.OnUserNoticeMessage(func(message twitchirc.UserNoticeMessage) {
 		fmt.Printf("Notice: %s\n", message.Message)
 	})
@@ -73,12 +70,17 @@ func main() {
 		DataStore: AppCtx.DataStore,
 		ClientIRC: AppCtx.ClientIRC,
 	}
+	thanosCommand := irc.ThanosCommand{
+		DataStore: AppCtx.DataStore,
+		ClientIRC: AppCtx.ClientIRC,
+		TwitchAPI: AppCtx.TwitchAPI,
+	}
 
+	var cmds []irc.Command
 	commands := make(map[string]irc.CommandHandler)
-	cmds := append(
-		questionCommands.GetCommands(),
-		firstCommands.GetCommands()...,
-	)
+	cmds = append(cmds, questionCommands.GetCommands()...)
+	cmds = append(cmds, firstCommands.GetCommands()...)
+	cmds = append(cmds, thanosCommand.GetCommands()...)
 
 	if env != "prod" {
 		dev := "-dev"
@@ -111,7 +113,7 @@ func main() {
 				// This is all deprecated
 				switch command {
 				case "startroll":
-					if isSouLxBurN(streamUser.Username) {
+					if irc.IsSouLxBurN(streamUser.Username) {
 						if AppCtx.DiceGame.CanRoll {
 							if err := AppCtx.DiceGame.StartRoll(message.Channel); err != nil {
 								log.Println("Failed to start roll: ", err)
@@ -121,17 +123,12 @@ func main() {
 						}
 					}
 				case "raid":
-					if isSouLxBurN(streamUser.Username) {
+					if irc.IsSouLxBurN(streamUser.Username) {
 						var buff strings.Builder
 						for i := 0; i < 9; i++ {
 							buff.WriteString("%[1]s %[2]s %[3]s ")
 						}
 						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf(buff.String(), "PowerUpL", "soulxbGASMShake", "PowerUpR"))
-					}
-				case "thanos":
-					err := thanos(streamUser, &message)
-					if err != nil {
-						log.Println(err)
 					}
 				}
 			}
@@ -200,50 +197,4 @@ func parseCommand(message string) (string, string) {
 		return split[0], split[1]
 	}
 	return split[0], ""
-}
-
-// isSouLxBurN
-func isSouLxBurN(username string) bool {
-	return strings.ToLower(username) == "soulxburn"
-}
-
-func thanos(streamUser *db.StreamUser, message *twitchirc.PrivateMessage) error {
-	if !isSouLxBurN(message.User.DisplayName) && !isSouLxBurN(message.Channel) {
-		return errors.New("You are not Thanos")
-	}
-	usernames, err := AppCtx.ClientIRC.Userlist(message.Channel)
-	if err != nil {
-		log.Println("Thanos was unable to fetch the user list")
-		return err
-	}
-
-	for len(usernames) > 0 {
-		chunksize := len(usernames)
-		if chunksize > 100 {
-			chunksize = 100
-		}
-		chunk := usernames[:chunksize]
-		usernames = usernames[chunksize:]
-
-		userInfoList, err := AppCtx.TwitchAPI.GetUsers(chunk)
-		if err != nil {
-			continue
-		}
-
-		rand.Shuffle(len(userInfoList), func(i, j int) { userInfoList[i], userInfoList[j] = userInfoList[j], userInfoList[i] })
-		theChosen := []*twitch.TwitchUserInfo{}
-
-		for i, usr := range userInfoList {
-			if i%2 == 0 {
-				theChosen = append(theChosen, usr)
-			}
-		}
-
-		for _, usr := range theChosen {
-			AppCtx.TwitchAPI.TimeoutUser(fmt.Sprint(streamUser.User.ID), usr.Id, 60, "*SNAP*")
-			fmt.Printf("Timed Out: %s\n", usr.DisplayName)
-			time.Sleep(time.Millisecond * 200)
-		}
-	}
-	return nil
 }
