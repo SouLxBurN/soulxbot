@@ -41,13 +41,40 @@ func InitDatabase() *Database {
 		log.Println("create stream_config_table failed: ", err)
 	}
 
+	if _, err := prepareAndExec(database, exclusion_table); err != nil {
+		log.Println("create exclusion_table failed: ", err)
+	}
+
 	migrateExistingStreamUsers(database)
 
 	seedQuestionData(database)
 	seedUserData(database)
 	addQuestionDisabledColumn(database)
+	seedExclusionList(database)
 
 	return db
+}
+
+func seedExclusionList(db *sql.DB) {
+	check := `SELECT count(*) FROM exclusion`
+	rows, err := db.Query(check)
+	defer func() { _ = rows.Close() }()
+	if err != nil {
+		log.Println("failed empty exlusion check")
+		return
+	}
+
+	rows.Next()
+	var exclusion_count int
+	rows.Scan(&exclusion_count)
+	// Have to close the rows, otherwise database is locked.
+	rows.Close()
+
+	if exclusion_count <= 0 {
+		if _, err := prepareAndExec(db, exclusionListSeed); err != nil {
+			log.Println("exclusion list seed failed: ", err)
+		}
+	}
 }
 
 func migrateExistingStreamUsers(db *sql.DB) {

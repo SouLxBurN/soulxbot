@@ -325,4 +325,4 @@ CREATE TABLE IF NOT EXISTS stream_config (
     REFERENCES user (id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
-    )`
+           )`
