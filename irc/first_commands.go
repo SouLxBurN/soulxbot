@@ -3,7 +3,6 @@ package irc
 import (
 	"fmt"
 	"log"
-	"strings"
 
 	twitchirc "github.com/gempir/go-twitch-irc/v2"
 	"github.com/soulxburn/soulxbot/db"
@@ -23,6 +22,7 @@ func (q *FirstCommands) GetCommands() []Command {
 		{"firstleaders-all", q.firstleaders},
 		{"firstleaders-reset", q.firstleadersReset},
 		{"firstgive", q.firstgive},
+		{"firstexclude", q.firstexclude},
 	}
 	return commands
 }
@@ -82,15 +82,30 @@ func (q *FirstCommands) firstgive(msgCtx MessageContext, command string, input s
 	}
 }
 
-func IsFirstEnabled(streamUser *db.StreamUser) bool {
-	return streamUser != nil && streamUser.FirstEnabled
+func (q *FirstCommands) firstexclude(msgCtx MessageContext, command string, input string) {
+	if msgCtx.StreamUser.UserId == msgCtx.MessageUser.ID && len(input) > 0 {
+		q.DataStore.InsertExcludedUser(&msgCtx.StreamUser.UserId, input)
+		q.ClientIRC.Say(msgCtx.Channel, fmt.Sprintf("%s has been excluded from first", input))
+	}
+}
+
+func (q *FirstCommands) OnMessage(msgCtx MessageContext) {
+	if msgCtx.Stream != nil &&
+		msgCtx.Stream.FirstUserId == nil &&
+		IsFirstEnabled(msgCtx.StreamUser) &&
+		q.IsEligibleForFirst(msgCtx.Stream, msgCtx.MessageUser) {
+
+		q.DataStore.UpdateFirstUser(msgCtx.Stream.ID, msgCtx.MessageUser.ID)
+		q.ClientIRC.Say(msgCtx.Channel, fmt.Sprintf("Congratulations %s! You're first!", msgCtx.MessageUser.DisplayName))
+	}
 }
 
 // IsEligibleForFirst
-// TODO Expand this to a list of users
-// TODO Don't just ignore people with "bot" in their name
-func IsEligibleForFirst(stream *db.Stream, msgUser *db.User) bool {
-	return !strings.Contains(strings.ToLower(msgUser.Username), "bot") &&
-		!strings.EqualFold(msgUser.Username, "PokemonCommunityGame") &&
+func (q *FirstCommands) IsEligibleForFirst(stream *db.Stream, msgUser *db.User) bool {
+	return !q.DataStore.IsUserOnExclusionList(&stream.UserId, msgUser.Username) &&
 		stream.UserId != msgUser.ID
+}
+
+func IsFirstEnabled(streamUser *db.StreamUser) bool {
+	return streamUser != nil && streamUser.FirstEnabled
 }

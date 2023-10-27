@@ -7,6 +7,10 @@ import (
 	"github.com/soulxburn/soulxbot/db"
 )
 
+type MessageListener interface {
+	OnMessage(MessageContext)
+}
+
 type CommandHandler = func(MessageContext, string, string)
 
 type Command struct {

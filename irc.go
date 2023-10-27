@@ -81,6 +81,7 @@ func main() {
 	cmds = append(cmds, questionCommands.GetCommands()...)
 	cmds = append(cmds, firstCommands.GetCommands()...)
 	cmds = append(cmds, thanosCommand.GetCommands()...)
+	listeners := []irc.MessageListener{&firstCommands}
 
 	if env != "prod" {
 		dev := "-dev"
@@ -102,6 +103,10 @@ func main() {
 			MessageUser: messageUser,
 			StreamUser:  streamUser,
 			Stream:      stream,
+		}
+
+		for _, listener := range listeners {
+			listener.OnMessage(msgCtx)
 		}
 
 		if !streamUser.BotDisabled && isCommand(message.Message) {
@@ -132,11 +137,6 @@ func main() {
 					}
 				}
 			}
-		}
-
-		if stream != nil && stream.FirstUserId == nil && irc.IsFirstEnabled(streamUser) && irc.IsEligibleForFirst(stream, messageUser) {
-			AppCtx.DataStore.UpdateFirstUser(stream.ID, messageUser.ID)
-			AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("Congratulations %s! You're first!", message.User.DisplayName))
 		}
 
 		fmt.Printf("[%s]%s: %s\n", message.Channel, message.User.DisplayName, message.Message)
