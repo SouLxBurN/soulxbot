@@ -34,7 +34,7 @@ func (sp StreamPoller) goliveHandler(res http.ResponseWriter, req *http.Request)
 			return
 		}
 		res.WriteHeader(http.StatusAccepted)
-		go sp.PollStreamStatus(stream, user)
+		go sp.PollStreamStatus(stream, user, false)
 		log.Printf("%s is now live!", user.DisplayName)
 	} else if ok && stream != nil {
 		log.Printf("User %s, is already online", user.Username)
@@ -46,32 +46,51 @@ func (sp StreamPoller) goliveHandler(res http.ResponseWriter, req *http.Request)
 }
 
 // PollStreamStatus
-func (sp StreamPoller) PollStreamStatus(stream *db.Stream, streamUser *db.User) {
+func (sp StreamPoller) PollStreamStatus(stream *db.Stream, streamUser *db.User, isRestart bool) {
+	if isRestart {
+		live, err := sp.isStreamLive(stream, streamUser)
+		if err != nil {
+			log.Println("Error fetching stream info on restart: ", streamUser.Username, err)
+		} else if !live {
+			return
+		}
+	}
+
 	tick := time.NewTicker(5 * time.Minute)
 	for {
 		select {
 		case <-tick.C:
-			streamInfo, err := sp.twitchAPI.GetStream(streamUser.Username)
+			live, err := sp.isStreamLive(stream, streamUser)
 			if err != nil {
 				log.Println("Error fetching stream info: ", streamUser.Username, err)
 				continue
-			}
-
-			if streamInfo == nil {
-				sp.db.UpdateStreamEndedAt(stream.ID, time.Now())
+			} else if !live {
 				tick.Stop()
 				return
 			}
-
-			if stream.TWID == nil || stream.Title == nil {
-				twid, err := strconv.Atoi(streamInfo.ID)
-				if err == nil {
-					sp.db.UpdateStreamInfo(stream.ID, twid, streamInfo.Title)
-					stream = sp.db.FindStreamById(stream.ID)
-				}
-			}
 		}
 	}
+}
+
+func (sp StreamPoller) isStreamLive(stream *db.Stream, streamUser *db.User) (bool, error) {
+	streamInfo, err := sp.twitchAPI.GetStream(streamUser.Username)
+	if err != nil {
+		return false, err
+	}
+
+	if streamInfo == nil {
+		sp.db.UpdateStreamEndedAt(stream.ID, time.Now())
+		return false, nil
+	}
+
+	if stream.TWID == nil || stream.Title == nil {
+		twid, err := strconv.Atoi(streamInfo.ID)
+		if err == nil {
+			sp.db.UpdateStreamInfo(stream.ID, twid, streamInfo.Title)
+			stream = sp.db.FindStreamById(stream.ID)
+		}
+	}
+	return true, nil
 }
 
 func (sp StreamPoller) RestartStreamStatusPolls() {
@@ -80,7 +99,7 @@ func (sp StreamPoller) RestartStreamStatusPolls() {
 	for _, stream := range streamsInProgress {
 		user, ok := sp.db.FindUserByID(stream.UserId)
 		if ok {
-			go sp.PollStreamStatus(stream, user)
+			go sp.PollStreamStatus(stream, user, true)
 		}
 	}
 }
