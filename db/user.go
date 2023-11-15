@@ -285,6 +285,40 @@ func (d *Database) FindStreamUserByUserName(username string) (*StreamUser, error
 	}, nil
 }
 
+// FindStreamUserByUsername
+func (d *Database) FindAllStreamUsers() ([]StreamUser, error) {
+	rows, err := d.db.Query(FIND_ALL_STREAM_USERS)
+	if err != nil {
+		log.Println("find all stream users query failed")
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var users []StreamUser
+	for rows.Next() {
+		var user User
+		var config StreamConfig
+		rows.Scan(
+			&user.ID,
+			&user.Username,
+			&user.DisplayName,
+			&config.ID,
+			&config.UserId,
+			&config.BotDisabled,
+			&config.FirstEnabled,
+			&config.FirstEpoch,
+			&config.QotdEnabled,
+			&config.QotdEpoch,
+			&config.DateUpdated)
+
+		users = append(users, StreamUser{
+			user,
+			config,
+		})
+	}
+	return users, nil
+}
+
 // ResetFirstEpoch
 func (d *Database) ResetFirstEpoch(userId int) error {
 	statement, err := d.db.Prepare(UPDATE_FIRST_EPOCH)

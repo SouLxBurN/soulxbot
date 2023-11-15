@@ -143,16 +143,19 @@ func main() {
 	})
 
 	// Join all channels that have an api key
-	registeredUsers, err := AppCtx.DataStore.FindAllApiKeyUsers()
+	registeredUsers, err := AppCtx.DataStore.FindAllStreamUsers()
 	if err != nil {
 		log.Fatal("Failed to fetch registered users", err)
 	}
 
 	var usernames []string
 	for _, user := range registeredUsers {
-		usernames = append(usernames, user.Username)
-		AppCtx.ClientIRC.Join(user.Username)
+		if !user.BotDisabled {
+			usernames = append(usernames, user.Username)
+			AppCtx.ClientIRC.Join(user.Username)
+		}
 	}
+	log.Println("Joined channels: ", usernames)
 
 	if err := AppCtx.ClientIRC.Connect(); err != nil {
 		panic(err)
