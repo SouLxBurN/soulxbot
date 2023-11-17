@@ -16,12 +16,6 @@ SELECT id, username, displayName
 FROM user
 `
 
-const FIND_ALL_APIKEY_USERS string = `
-SELECT id, username, displayName
-FROM user
-WHERE apiKey IS NOT NULL
-`
-
 const FIND_USER_BY_ID string = `
 SELECT id, username, displayName
 FROM user
@@ -35,9 +29,9 @@ WHERE username=?
 `
 
 const FIND_USER_BY_APIKEY string = `
-SELECT id, username, displayName
-FROM user
-WHERE apiKey=?
+SELECT u.id, u.username, u.displayName
+FROM user u, stream_config sc
+WHERE sc.apiKey=? AND u.id=sc.userId
 `
 
 const FIND_USER_TIMES_FIRST string = `
@@ -97,9 +91,9 @@ WHERE endedAt IS NULL
 `
 
 const UPDATE_APIKEY_BY_USERID string = `
-UPDATE user
+UPDATE stream_config
 SET apiKey=?
-WHERE id=?
+WHERE userId=?
 `
 
 const UPDATE_FIRST_USER string = `

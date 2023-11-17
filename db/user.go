@@ -88,26 +88,6 @@ func (d *Database) FindAllUsers() ([]User, error) {
 	return users, nil
 }
 
-// FindAllApiKeyUsers
-func (d *Database) FindAllApiKeyUsers() ([]User, error) {
-	rows, err := d.db.Query(FIND_ALL_APIKEY_USERS)
-	defer func() { _ = rows.Close() }()
-
-	if err != nil {
-		log.Println("Error finding registered users : ", err)
-		return nil, err
-	}
-
-	var results []User
-	for rows.Next() {
-		var user User
-		rows.Scan(&user.ID, &user.Username, &user.DisplayName)
-		results = append(results, user)
-	}
-
-	return results, nil
-}
-
 // UpdateAPIKeyForUser
 func (d *Database) UpdateAPIKeyForUser(userId int, apiKey string) error {
 	statement, err := d.db.Prepare(UPDATE_APIKEY_BY_USERID)

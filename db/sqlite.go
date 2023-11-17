@@ -51,6 +51,8 @@ func InitDatabase() *Database {
 	seedUserData(database)
 	addQuestionDisabledColumn(database)
 	seedExclusionList(database)
+	addAuthToStreamConfig(database)
+	migrateUserApiKeys(database)
 
 	return db
 }
@@ -95,6 +97,48 @@ func migrateExistingStreamUsers(db *sql.DB) {
 	if config_count <= 0 {
 		if _, err := prepareAndExec(db, migrateConfigs); err != nil {
 			log.Println("stream_config migrate failed: ", err)
+		}
+	}
+}
+
+func migrateUserApiKeys(db *sql.DB) {
+	columnCheck := `SELECT count(*) as apiKeys FROM pragma_table_info('user') WHERE name = 'apiKey'`
+	countCheck := `SELECT count(*) FROM user WHERE apiKey IS NOT NULL`
+	moveApiKey := `UPDATE stream_config SET apiKey=u.apiKey FROM user u WHERE stream_config.userId=u.id AND u.apiKey IS NOT NULL`
+	deleteOldKeys := `UPDATE user SET apiKey=NULL`
+
+	rows, err := db.Query(columnCheck)
+	defer func() { _ = rows.Close() }()
+	if err != nil {
+		log.Println("failed apiKey check")
+		return
+	}
+
+	rows.Next()
+	var column_count int
+	rows.Scan(&column_count)
+	// Have to close the rows, otherwise database is locked.
+	rows.Close()
+
+	rows, err = db.Query(countCheck)
+	defer func() { _ = rows.Close() }()
+	if err != nil {
+		log.Println("failed count apiKey check")
+		return
+	}
+
+	rows.Next()
+	var config_count int
+	rows.Scan(&config_count)
+	// Have to close the rows, otherwise database is locked.
+	rows.Close()
+
+	if column_count > 0 && config_count > 0 {
+		if _, err := prepareAndExec(db, moveApiKey); err != nil {
+			log.Println("apiKey migrate failed: ", err)
+		}
+		if _, err := prepareAndExec(db, deleteOldKeys); err != nil {
+			log.Println("delete user.apiKey script failed: ", err)
 		}
 	}
 }
@@ -167,6 +211,39 @@ func addQuestionDisabledColumn(db *sql.DB) {
 		}
 		if _, err := prepareAndExec(db, addSkipCountColumn); err != nil {
 			log.Println("question.disabled column script failed: ", err)
+		}
+	}
+}
+
+// Migration Script for adding disabled column to question table
+func addAuthToStreamConfig(db *sql.DB) {
+	authCheck := `SELECT count(*) as disabled FROM pragma_table_info('stream_config') WHERE name = 'twitchAuthToken';`
+	addApiKeyColumn := `ALTER TABLE stream_config ADD COLUMN apiKey TEXT`
+	addAuthTokenColumn := `ALTER TABLE stream_config ADD COLUMN twitchAuthToken TEXT`
+	addRefreshTokenColumn := `ALTER TABLE stream_config ADD COLUMN twitchRefreshToken TEXT`
+
+	rows, err := db.Query(authCheck)
+	defer func() { _ = rows.Close() }()
+	if err != nil {
+		log.Println("stream_config.twitchAuthToken column check failed")
+		return
+	}
+
+	rows.Next()
+	var authTokenPresent int
+	rows.Scan(&authTokenPresent)
+	// Have to close the rows, otherwise database is locked.
+	rows.Close()
+
+	if authTokenPresent == 0 {
+		if _, err := prepareAndExec(db, addApiKeyColumn); err != nil {
+			log.Println("stream_config.apiKey column script failed: ", err)
+		}
+		if _, err := prepareAndExec(db, addAuthTokenColumn); err != nil {
+			log.Println("stream_config.twitchAuthToken column script failed: ", err)
+		}
+		if _, err := prepareAndExec(db, addRefreshTokenColumn); err != nil {
+			log.Println("stream_config.twitchRefreshToken column script failed: ", err)
 		}
 	}
 }
