@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"log"
 	"time"
 )
@@ -13,14 +14,17 @@ type User struct {
 }
 
 type StreamConfig struct {
-	ID           int
-	UserId       int
-	BotDisabled  bool
-	FirstEnabled bool
-	FirstEpoch   time.Time
-	QotdEnabled  bool
-	QotdEpoch    time.Time
-	DateUpdated  time.Time
+	ID                 int
+	UserId             int
+	BotDisabled        bool
+	FirstEnabled       bool
+	FirstEpoch         time.Time
+	QotdEnabled        bool
+	QotdEpoch          time.Time
+	DateUpdated        time.Time
+	APIKey             string
+	TwitchAuthToken    *EncryptedToken
+	TwitchRefreshToken *EncryptedToken
 }
 
 type StreamUser struct {
@@ -106,6 +110,24 @@ func (d *Database) UpdateAPIKeyForUser(userId int, apiKey string) error {
 	return nil
 }
 
+// UpdateTwitchAuth
+func (d *Database) UpdateTwitchAuth(userId int, authToken EncryptedToken, refreshToken EncryptedToken) error {
+	statement, err := d.db.Prepare(UPDATE_TWITCHAUTH_BY_USERID)
+	if statement != nil {
+		defer func() { _ = statement.Close() }()
+	}
+	if err != nil {
+		log.Println("Error preparing update twitch auth statement: ", err)
+	}
+
+	_, err = statement.Exec(authToken, refreshToken, userId)
+	if err != nil {
+		log.Println("Error updating twitch auth: ", err)
+	}
+
+	return nil
+}
+
 // FindUserByID
 func (d *Database) FindUserByID(ID int) (*User, bool) {
 	rows, _ := d.db.Query(FIND_USER_BY_ID, ID)
@@ -157,7 +179,7 @@ func (d *Database) FindUserByApiKey(apiKey string) (*User, bool) {
 }
 
 // CreateStreamConfig
-func (d *Database) CreateStreamConfig(userId int) (*StreamConfig, error) {
+func (d *Database) CreateStreamConfig(userId int, apiKey string, authToken EncryptedToken, refreshToken EncryptedToken) (*StreamConfig, error) {
 	statement, err := d.db.Prepare(CREATE_STREAM_CONFIG)
 	if statement != nil {
 		defer func() { _ = statement.Close() }()
@@ -168,13 +190,16 @@ func (d *Database) CreateStreamConfig(userId int) (*StreamConfig, error) {
 	}
 
 	config := StreamConfig{
-		UserId:       userId,
-		BotDisabled:  false,
-		FirstEnabled: true,
-		FirstEpoch:   time.Now(),
-		QotdEnabled:  true,
-		QotdEpoch:    time.Now(),
-		DateUpdated:  time.Now(),
+		UserId:             userId,
+		BotDisabled:        false,
+		FirstEnabled:       true,
+		FirstEpoch:         time.Now(),
+		QotdEnabled:        true,
+		QotdEpoch:          time.Now(),
+		DateUpdated:        time.Now(),
+		APIKey:             apiKey,
+		TwitchAuthToken:    &authToken,
+		TwitchRefreshToken: &refreshToken,
 	}
 
 	result, err := statement.Exec(
@@ -185,6 +210,9 @@ func (d *Database) CreateStreamConfig(userId int) (*StreamConfig, error) {
 		config.QotdEnabled,
 		config.QotdEpoch,
 		config.DateUpdated,
+		config.APIKey,
+		config.TwitchAuthToken,
+		config.TwitchRefreshToken,
 	)
 	if err != nil {
 		log.Println("Error creating stream config", err)
@@ -210,25 +238,8 @@ func (d *Database) FindStreamUserByUserID(userId int) (*StreamUser, error) {
 		return nil, nil
 	}
 
-	var user User
-	var config StreamConfig
-	rows.Scan(
-		&user.ID,
-		&user.Username,
-		&user.DisplayName,
-		&config.ID,
-		&config.UserId,
-		&config.BotDisabled,
-		&config.FirstEnabled,
-		&config.FirstEpoch,
-		&config.QotdEnabled,
-		&config.QotdEpoch,
-		&config.DateUpdated)
-
-	return &StreamUser{
-		user,
-		config,
-	}, nil
+	streamUser := scanStreamUser(rows)
+	return &streamUser, nil
 }
 
 // FindStreamUserByUsername
@@ -244,25 +255,8 @@ func (d *Database) FindStreamUserByUserName(username string) (*StreamUser, error
 		return nil, nil
 	}
 
-	var user User
-	var config StreamConfig
-	rows.Scan(
-		&user.ID,
-		&user.Username,
-		&user.DisplayName,
-		&config.ID,
-		&config.UserId,
-		&config.BotDisabled,
-		&config.FirstEnabled,
-		&config.FirstEpoch,
-		&config.QotdEnabled,
-		&config.QotdEpoch,
-		&config.DateUpdated)
-
-	return &StreamUser{
-		user,
-		config,
-	}, nil
+	streamUser := scanStreamUser(rows)
+	return &streamUser, nil
 }
 
 // FindStreamUserByUsername
@@ -276,27 +270,31 @@ func (d *Database) FindAllStreamUsers() ([]StreamUser, error) {
 
 	var users []StreamUser
 	for rows.Next() {
-		var user User
-		var config StreamConfig
-		rows.Scan(
-			&user.ID,
-			&user.Username,
-			&user.DisplayName,
-			&config.ID,
-			&config.UserId,
-			&config.BotDisabled,
-			&config.FirstEnabled,
-			&config.FirstEpoch,
-			&config.QotdEnabled,
-			&config.QotdEpoch,
-			&config.DateUpdated)
-
-		users = append(users, StreamUser{
-			user,
-			config,
-		})
+		users = append(users, scanStreamUser(rows))
 	}
 	return users, nil
+}
+
+func scanStreamUser(rows *sql.Rows) StreamUser {
+	var user User
+	var config StreamConfig
+	rows.Scan(
+		&user.ID,
+		&user.Username,
+		&user.DisplayName,
+		&config.ID,
+		&config.UserId,
+		&config.BotDisabled,
+		&config.FirstEnabled,
+		&config.FirstEpoch,
+		&config.QotdEnabled,
+		&config.QotdEpoch,
+		&config.DateUpdated,
+		&config.APIKey,
+		&config.TwitchAuthToken,
+		&config.TwitchRefreshToken,
+	)
+	return StreamUser{user, config}
 }
 
 // ResetFirstEpoch
@@ -334,7 +332,7 @@ CREATE TABLE IF NOT EXISTS stream_config (
     firstEpoch DATETIME,
     qotdEnabled bool,
     qotdEpoch DATETIME,
-    dateUpdated DATATIME,
+    dateUpdated DATETIME,
     FOREIGN KEY (userId)
     REFERENCES user (id)
         ON UPDATE CASCADE

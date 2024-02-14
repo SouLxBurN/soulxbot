@@ -17,9 +17,7 @@ func InitDatabase() *Database {
 	if err != nil {
 		log.Println(err)
 	}
-	db := &Database{
-		db: database,
-	}
+	db := &Database{db: database}
 
 	if _, err := prepareAndExec(database, enable_foreign_keys); err != nil {
 		log.Println("enable statement failed: ", err)
@@ -219,8 +217,8 @@ func addQuestionDisabledColumn(db *sql.DB) {
 func addAuthToStreamConfig(db *sql.DB) {
 	authCheck := `SELECT count(*) as disabled FROM pragma_table_info('stream_config') WHERE name = 'twitchAuthToken';`
 	addApiKeyColumn := `ALTER TABLE stream_config ADD COLUMN apiKey TEXT`
-	addAuthTokenColumn := `ALTER TABLE stream_config ADD COLUMN twitchAuthToken TEXT`
-	addRefreshTokenColumn := `ALTER TABLE stream_config ADD COLUMN twitchRefreshToken TEXT`
+	addAuthTokenColumn := `ALTER TABLE stream_config ADD COLUMN twitchAuthToken BLOB`
+	addRefreshTokenColumn := `ALTER TABLE stream_config ADD COLUMN twitchRefreshToken BLOB`
 
 	rows, err := db.Query(authCheck)
 	defer func() { _ = rows.Close() }()

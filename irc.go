@@ -43,18 +43,22 @@ func main() {
 
 	clientID := os.Getenv("SOULXBOT_CLIENTID")
 	clientSecret := os.Getenv("SOULXBOT_CLIENTSECRET")
-	authToken := os.Getenv("SOULXBOT_AUTHTOKEN")
-	refreshToken := os.Getenv("SOULXBOT_REFRESHTOKEN")
+	oauthRedirectUri := os.Getenv("SOULXBOT_OAUTHREDIRECTURI")
+	// authToken := os.Getenv("SOULXBOT_AUTHTOKEN")
+	// refreshToken := os.Getenv("SOULXBOT_REFRESHTOKEN")
 
 	basicAuth := os.Getenv("SOULXBOT_BASICAUTH")
 	env := os.Getenv("SOULXBOT_ENV")
 
+	keyPhrase := os.Getenv("SOULXBOT_KEYPHRASE")
+	// keyPhrase := "SOULXBOT_KEYPHRASE"
+
 	AppCtx.DataStore = db.InitDatabase()
-	AppCtx.TwitchAPI = twitch.NewTwitchAPI(clientID, clientSecret, authToken, refreshToken)
+	AppCtx.TwitchAPI = twitch.NewTwitchAPI(clientID, clientSecret, AppCtx.DataStore, oauthRedirectUri, keyPhrase)
 	AppCtx.ClientIRC = twitchirc.NewClient(user, oauth)
 	AppCtx.DiceGame = dice.NewDiceGame(AppCtx.ClientIRC, AppCtx.TwitchAPI)
 
-	apiConfig := api.Config{BasicAuth: basicAuth}
+	apiConfig := api.Config{BasicAuth: basicAuth, ClientID: clientID, RedirectURI: oauthRedirectUri, KeyPhrase: keyPhrase}
 	httpApi := api.New(apiConfig, AppCtx.DataStore, AppCtx.TwitchAPI, AppCtx.ClientIRC)
 	go httpApi.InitAPIAndListen()
 

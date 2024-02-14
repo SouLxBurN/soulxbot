@@ -41,10 +41,10 @@ func (t *ThanosCommand) thanos(msgCtx MessageContext, command string, input stri
 		if chunksize > 100 {
 			chunksize = 100
 		}
-		chunk := usernames[:chunksize]
+		userChunk := usernames[:chunksize]
 		usernames = usernames[chunksize:]
 
-		userInfoList, err := t.TwitchAPI.GetUsers(chunk)
+		userInfoList, err := t.TwitchAPI.GetUsers(userChunk)
 		if err != nil {
 			continue
 		}

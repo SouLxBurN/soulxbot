@@ -11,7 +11,10 @@ import (
 )
 
 type Config struct {
-	BasicAuth string
+	BasicAuth   string
+	ClientID    string
+	RedirectURI string
+	KeyPhrase   string
 }
 
 type API struct {
@@ -39,6 +42,7 @@ func (api *API) InitAPIAndListen() error {
 	mux.HandleFunc("/question/", api.getQuestion)
 	mux.HandleFunc("/question", api.handleQuestionWrites)
 	mux.HandleFunc("/register", api.handleRegisterUser)
+	mux.HandleFunc("/oauth2/register", api.handleOAuthRegisterUser)
 	mux.HandleFunc("/golive", poller.goliveHandler)
 
 	return http.ListenAndServe(":8080", mux)
