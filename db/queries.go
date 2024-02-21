@@ -166,8 +166,12 @@ INSERT INTO stream_config (
     firstEpoch,
     qotdEnabled,
     qotdEpoch,
-    dateUpdated)
-VALUES(?,?,?,?,?,?,?)
+    dateUpdated,
+    apiKey,
+    twitchAuthToken,
+    twitchRefreshToken
+    )
+VALUES(?,?,?,?,?,?,?,?,?,?)
 `
 
 const UPDATE_FIRST_EPOCH string = `
@@ -176,20 +180,26 @@ SET firstEpoch=?
 WHERE userId=?
 `
 
+const UPDATE_TWITCHAUTH_BY_USERID string = `
+UPDATE stream_config
+SET twitchAuthToken=?, twitchRefreshToken=?
+WHERE userId=?
+`
+
 const FIND_STREAM_USER_BY_USERID string = `
-SELECT u.id, u.username, u.displayName, sc.id, sc.userId, sc.botDisabled, sc.firstEnabled, sc.firstEpoch, sc.qotdEnabled, sc.qotdEpoch, sc.dateUpdated
+SELECT u.id, u.username, u.displayName, sc.id, sc.userId, sc.botDisabled, sc.firstEnabled, sc.firstEpoch, sc.qotdEnabled, sc.qotdEpoch, sc.dateUpdated, sc.apiKey, sc.twitchAuthToken, sc.twitchRefreshToken
 FROM user u, stream_config sc
 WHERE u.id = sc.userId AND userId=?
 `
 
 const FIND_STREAM_USER_BY_USERNAME string = `
-SELECT u.id, u.username, u.displayName, sc.id, sc.userId, sc.botDisabled, sc.firstEnabled, sc.firstEpoch, sc.qotdEnabled, sc.qotdEpoch, sc.dateUpdated
+SELECT u.id, u.username, u.displayName, sc.id, sc.userId, sc.botDisabled, sc.firstEnabled, sc.firstEpoch, sc.qotdEnabled, sc.qotdEpoch, sc.dateUpdated, sc.apiKey, sc.twitchAuthToken, sc.twitchRefreshToken
 FROM user u, stream_config sc
 WHERE u.id = sc.userId AND u.username=?
 `
 
 const FIND_ALL_STREAM_USERS string = `
-SELECT u.id, u.username, u.displayName, sc.id, sc.userId, sc.botDisabled, sc.firstEnabled, sc.firstEpoch, sc.qotdEnabled, sc.qotdEpoch, sc.dateUpdated
+SELECT u.id, u.username, u.displayName, sc.id, sc.userId, sc.botDisabled, sc.firstEnabled, sc.firstEpoch, sc.qotdEnabled, sc.qotdEpoch, sc.dateUpdated, sc.apiKey, sc.twitchAuthToken, sc.twitchRefreshToken
 FROM user u, stream_config sc
 WHERE u.id = sc.userId
 `

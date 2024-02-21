@@ -53,6 +53,7 @@ type Outcome struct {
 
 type TokenResponse struct {
 	AccessToken  string   `json:"access_token"`
+	IDToken      *string  `json:"id_token"`
 	RefreshToken string   `json:"refresh_token"`
 	Scope        []string `json:"scope"`
 	TokenType    string   `json:"token_type"`

@@ -43,18 +43,22 @@ func main() {
 
 	clientID := os.Getenv("SOULXBOT_CLIENTID")
 	clientSecret := os.Getenv("SOULXBOT_CLIENTSECRET")
-	authToken := os.Getenv("SOULXBOT_AUTHTOKEN")
-	refreshToken := os.Getenv("SOULXBOT_REFRESHTOKEN")
+	oauthRedirectUri := os.Getenv("SOULXBOT_OAUTHREDIRECTURI")
+	// authToken := os.Getenv("SOULXBOT_AUTHTOKEN")
+	// refreshToken := os.Getenv("SOULXBOT_REFRESHTOKEN")
 
 	basicAuth := os.Getenv("SOULXBOT_BASICAUTH")
 	env := os.Getenv("SOULXBOT_ENV")
 
+	keyPhrase := os.Getenv("SOULXBOT_KEYPHRASE")
+	// keyPhrase := "SOULXBOT_KEYPHRASE"
+
 	AppCtx.DataStore = db.InitDatabase()
-	AppCtx.TwitchAPI = twitch.NewTwitchAPI(clientID, clientSecret, authToken, refreshToken)
+	AppCtx.TwitchAPI = twitch.NewTwitchAPI(clientID, clientSecret, AppCtx.DataStore, oauthRedirectUri, keyPhrase)
 	AppCtx.ClientIRC = twitchirc.NewClient(user, oauth)
 	AppCtx.DiceGame = dice.NewDiceGame(AppCtx.ClientIRC, AppCtx.TwitchAPI)
 
-	apiConfig := api.Config{BasicAuth: basicAuth}
+	apiConfig := api.Config{BasicAuth: basicAuth, ClientID: clientID, RedirectURI: oauthRedirectUri, KeyPhrase: keyPhrase}
 	httpApi := api.New(apiConfig, AppCtx.DataStore, AppCtx.TwitchAPI, AppCtx.ClientIRC)
 	go httpApi.InitAPIAndListen()
 
@@ -118,14 +122,12 @@ func main() {
 				// This is all deprecated
 				switch command {
 				case "startroll":
-					if irc.IsSouLxBurN(streamUser.Username) {
-						if AppCtx.DiceGame.CanRoll {
-							if err := AppCtx.DiceGame.StartRoll(message.Channel); err != nil {
-								log.Println("Failed to start roll: ", err)
-							}
-						} else {
-							AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%s, That command is on cooldown", message.User.DisplayName))
+					if AppCtx.DiceGame.CanRoll {
+						if err := AppCtx.DiceGame.StartRoll(*streamUser, message.Channel); err != nil {
+							log.Println("Failed to start roll: ", err)
 						}
+					} else {
+						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%s, That command is on cooldown", message.User.DisplayName))
 					}
 				case "raid":
 					if irc.IsSouLxBurN(streamUser.Username) {

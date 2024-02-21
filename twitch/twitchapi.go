@@ -8,6 +8,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+
+	"github.com/soulxburn/soulxbot/db"
 )
 
 const (
@@ -24,31 +29,35 @@ const (
 type ITwitchAPI interface {
 	GetStream(string) (*TwitchStreamInfo, error)
 	GetUsers([]string) ([]*TwitchUserInfo, error)
-	CreatePrediction(string, int, []string) (*TwitchPrediction, error)
-	EndPrediction(*TwitchPrediction, string) error
-	TimeoutUser(string, string, int, string) error
+	GetAuthenticatedUser(string) (*TokenResponse, error)
+	CreatePrediction(db.StreamUser, string, int, []string) (*TwitchPrediction, error)
+	EndPrediction(db.StreamUser, *TwitchPrediction, string) error
+	TimeoutUser(db.StreamUser, string, int, string) error
 }
 
 type TwitchAPI struct {
-	clientID     string
-	clientSecret string
-	authToken    string
-	refreshToken string
+	clientID         string
+	clientSecret     string
+	accessToken      string
+	oauthRedirectUri string
+	db               *db.Database
+	keyPhrase        string
 }
 
 // NewTwitchAPI
-func NewTwitchAPI(clientID string, clientSecret string, authToken string, refreshToken string) ITwitchAPI {
+func NewTwitchAPI(clientID string, clientSecret string, db *db.Database, oauthRedirectUri string, keyPhrase string) ITwitchAPI {
 	return &TwitchAPI{
-		clientID:     clientID,
-		clientSecret: clientSecret,
-		authToken:    authToken,
-		refreshToken: refreshToken,
+		clientID:         clientID,
+		clientSecret:     clientSecret,
+		db:               db,
+		oauthRedirectUri: oauthRedirectUri,
+		keyPhrase:        keyPhrase,
 	}
 }
 
 // GetStream
 func (a *TwitchAPI) GetStream(user string) (*TwitchStreamInfo, error) {
-	authToken, err := a.getAuthToken()
+	authToken, err := a.getAppAccessToken()
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +101,7 @@ func (a *TwitchAPI) GetStream(user string) (*TwitchStreamInfo, error) {
 
 // Get up to 100 users from twitch based on a list of twitch usernames
 func (a *TwitchAPI) GetUsers(usernames []string) ([]*TwitchUserInfo, error) {
-	authToken, err := a.getAuthToken()
+	authToken, err := a.getAppAccessToken()
 	if err != nil {
 		return nil, err
 	}
@@ -137,9 +146,9 @@ func (a *TwitchAPI) GetUsers(usernames []string) ([]*TwitchUserInfo, error) {
 
 // CreatePrediction
 // Creates a twitch prediction
-func (a *TwitchAPI) CreatePrediction(title string, window int, outcomes []string) (*TwitchPrediction, error) {
+func (a *TwitchAPI) CreatePrediction(user db.StreamUser, title string, window int, outcomes []string) (*TwitchPrediction, error) {
 	requestBody := CreatePredictionBody{
-		BroadcasterID:    "31568083",
+		BroadcasterID:    strconv.Itoa(user.UserId),
 		Title:            title,
 		PredictionWindow: window,
 		Outcomes:         make([]Outcome, len(outcomes)),
@@ -157,7 +166,7 @@ func (a *TwitchAPI) CreatePrediction(title string, window int, outcomes []string
 		log.Println("Failed to Marshal Body")
 	}
 
-	authToken, err := a.getAuthToken()
+	authToken, err := a.getUserAuthToken(user)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +174,7 @@ func (a *TwitchAPI) CreatePrediction(title string, window int, outcomes []string
 	req, err := http.NewRequest("POST", TWITCH_HELIX_API+PREDICTIONS, bytes.NewReader(body))
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add("Client-Id", a.clientID)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", *authToken))
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -182,14 +191,12 @@ func (a *TwitchAPI) CreatePrediction(title string, window int, outcomes []string
 	predictionResp := new(TwitchPredictionResponse)
 	json.Unmarshal(respBody, predictionResp)
 
-	log.Println(response)
-
 	return predictionResp.Data[0], nil
 }
 
 // EndPrediction
 // Ends a twitch prediction
-func (a *TwitchAPI) EndPrediction(prediction *TwitchPrediction, winningID string) error {
+func (a *TwitchAPI) EndPrediction(user db.StreamUser, prediction *TwitchPrediction, winningID string) error {
 	requestBody := EndPredictionBody{
 		ID:               prediction.ID,
 		BroadcasterID:    prediction.BroadcasterID,
@@ -202,7 +209,7 @@ func (a *TwitchAPI) EndPrediction(prediction *TwitchPrediction, winningID string
 		log.Println("Failed to Marshal Body")
 	}
 
-	authToken, err := a.getAuthToken()
+	authToken, err := a.getUserAuthToken(user)
 	if err != nil {
 		return err
 	}
@@ -210,7 +217,7 @@ func (a *TwitchAPI) EndPrediction(prediction *TwitchPrediction, winningID string
 	req, err := http.NewRequest("PATCH", TWITCH_HELIX_API+PREDICTIONS, bytes.NewReader(body))
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add("Client-Id", a.clientID)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", *authToken))
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -227,12 +234,10 @@ func (a *TwitchAPI) EndPrediction(prediction *TwitchPrediction, winningID string
 	predictionResp := new(TwitchPredictionResponse)
 	json.Unmarshal(respBody, predictionResp)
 
-	log.Println(response)
-
 	return nil
 }
 
-func (a *TwitchAPI) TimeoutUser(streamerID string, userID string, duration int, reason string) error {
+func (a *TwitchAPI) TimeoutUser(user db.StreamUser, userID string, duration int, reason string) error {
 	requestBody := BanUserRequest{
 		Data: TwitchBanUserRequestData{userID, duration, reason},
 	}
@@ -242,7 +247,7 @@ func (a *TwitchAPI) TimeoutUser(streamerID string, userID string, duration int, 
 		return err
 	}
 
-	authToken, err := a.getAuthToken()
+	authToken, err := a.getUserAuthToken(user)
 	if err != nil {
 		return err
 	}
@@ -250,11 +255,11 @@ func (a *TwitchAPI) TimeoutUser(streamerID string, userID string, duration int, 
 	req, err := http.NewRequest(http.MethodPost, TWITCH_HELIX_API+BANS, bytes.NewReader(body))
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add("Client-Id", a.clientID)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", *authToken))
 
 	q := req.URL.Query()
-	q.Add("broadcaster_id", streamerID)
-	q.Add("moderator_id", streamerID)
+	q.Add("broadcaster_id", strconv.Itoa(user.UserId))
+	q.Add("moderator_id", strconv.Itoa(user.UserId))
 	req.URL.RawQuery = q.Encode()
 
 	response, err := http.DefaultClient.Do(req)
@@ -273,40 +278,52 @@ func (a *TwitchAPI) TimeoutUser(streamerID string, userID string, duration int, 
 	return nil
 }
 
-// getAuthToken
-func (a *TwitchAPI) getAuthToken() (string, error) {
-	if !a.validateAuthToken() {
-		if err := a.refreshAuthToken(); err != nil {
-			return "", err
-		}
+// getUserAuthToken
+func (a *TwitchAPI) getUserAuthToken(user db.StreamUser) (*string, error) {
+	if user.TwitchAuthToken == nil {
+		log.Printf("User=%d is missing auth token", user.User.ID)
+		return nil, errors.New("Missing Auth Token")
 	}
-	return a.authToken, nil
+
+	authToken, err := db.DecryptToken(*user.TwitchAuthToken, a.keyPhrase)
+	if err != nil {
+		log.Println("Failed to decrypt authToken", err)
+		return nil, err
+	}
+
+	if !a.validateAuthToken(authToken) {
+		newAuthToken, err := a.refresUserAuthToken(user)
+		if err != nil {
+			return nil, err
+		}
+		return newAuthToken, nil
+	}
+
+	return &authToken, nil
 }
 
-// refreshAuthToken
-func (a *TwitchAPI) refreshAuthToken() error {
+func (a *TwitchAPI) GetAuthenticatedUser(code string) (*TokenResponse, error) {
 	req, err := http.NewRequest("POST", TWITCH_OAUTH_API+TOKEN, bytes.NewReader([]byte{}))
-	req.Header.Add("Client-Id", a.clientID)
 
 	q := req.URL.Query()
-	q.Add("grant_type", "refresh_token")
+	q.Add("grant_type", "authorization_code")
 	q.Add("client_id", a.clientID)
 	q.Add("client_secret", a.clientSecret)
-	q.Add("refresh_token", a.refreshToken)
+	q.Add("code", code)
+	q.Add("redirect_uri", a.oauthRedirectUri)
 	req.URL.RawQuery = q.Encode()
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Println(err)
-		return err
+		return nil, err
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != 200 {
-		return errors.New("Critical: Failed to refresh Token")
+		return nil, errors.New("Critical: Failed to to get authenticated user")
 	}
 	if response.ContentLength <= 0 {
-		return errors.New("Error refreshing token. Unexpected content length")
+		return nil, errors.New("Error getting authenticated user. Unexpected content length")
 	}
 
 	respBody := make([]byte, response.ContentLength)
@@ -314,19 +331,75 @@ func (a *TwitchAPI) refreshAuthToken() error {
 
 	newTokens := new(TokenResponse)
 	if err := json.Unmarshal(respBody, newTokens); err != nil {
-		return err
+		return nil, err
 	}
 
-	a.authToken = newTokens.AccessToken
-	a.refreshToken = newTokens.RefreshToken
+	return newTokens, nil
+}
 
-	return nil
+// refreshUserAuthToken
+func (a *TwitchAPI) refresUserAuthToken(user db.StreamUser) (*string, error) {
+	req, err := http.NewRequest("POST", TWITCH_OAUTH_API+TOKEN, bytes.NewReader([]byte{}))
+	req.Header.Add("Client-Id", a.clientID)
+
+	if user.TwitchRefreshToken == nil {
+		log.Printf("User=%d is missing refresh token", user.User.ID)
+		return nil, errors.New("Missing Refresh Token")
+	}
+
+	refreshToken, err := db.DecryptToken(*user.TwitchRefreshToken, a.keyPhrase)
+	if err != nil {
+		log.Println("Failed to decrypt refresh token", err)
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	q.Add("grant_type", "refresh_token")
+	q.Add("client_id", a.clientID)
+	q.Add("client_secret", a.clientSecret)
+	q.Add("refresh_token", refreshToken)
+	req.URL.RawQuery = q.Encode()
+
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		return nil, errors.New("Critical: Failed to refresh Token")
+	}
+	if response.ContentLength <= 0 {
+		return nil, errors.New("Error refreshing token. Unexpected content length")
+	}
+
+	respBody := make([]byte, response.ContentLength)
+	response.Body.Read(respBody)
+
+	newTokens := new(TokenResponse)
+	if err := json.Unmarshal(respBody, newTokens); err != nil {
+		return nil, err
+	}
+	encryptedAuthToken, authErr := db.EncryptToken(newTokens.AccessToken, a.keyPhrase)
+	encryptedRefreshToken, refreshErr := db.EncryptToken(newTokens.RefreshToken, a.keyPhrase)
+	if authErr != nil || refreshErr != nil {
+		log.Println("Error during token encryption", authErr, refreshErr)
+		return nil, authErr
+	}
+
+	err = a.db.UpdateTwitchAuth(user.UserId, encryptedAuthToken, encryptedRefreshToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return &newTokens.AccessToken, nil
 }
 
 // validateAuthToken
-func (a *TwitchAPI) validateAuthToken() bool {
+func (a *TwitchAPI) validateAuthToken(authToken string) bool {
 	req, err := http.NewRequest(http.MethodGet, TWITCH_OAUTH_API+VALIDATE, bytes.NewReader([]byte{}))
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", a.authToken))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -342,4 +415,49 @@ func (a *TwitchAPI) validateAuthToken() bool {
 	respBody := make([]byte, response.ContentLength)
 	response.Body.Read(respBody)
 	return true
+}
+
+// getAppAccessToken
+// curl -X POST 'https://id.twitch.tv/oauth2/token' \
+// -H 'Content-Type: application/x-www-form-urlencoded' \
+// -d 'client_id=<your client id goes here>&client_secret=<your client secret goes here>&grant_type=client_credentials'
+func (a *TwitchAPI) getAppAccessToken() (string, error) {
+	// Validate, and return cached token if valid
+	if a.validateAuthToken(a.accessToken) {
+		return a.accessToken, nil
+	}
+
+	// Otherwise, get new token
+	data := url.Values{}
+	data.Set("client_id", a.clientID)
+	data.Set("client_secret", a.clientSecret)
+	data.Set("grant_type", "client_credentials")
+
+	req, err := http.NewRequest(http.MethodPost, TWITCH_OAUTH_API+TOKEN, strings.NewReader(data.Encode()))
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Println(err)
+		return "", err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		return "", errors.New("Critical: Failed to get app access token")
+	}
+	if response.ContentLength <= 0 {
+		return "", errors.New("Error getting app access token. Unexpected content length")
+	}
+
+	respBody := make([]byte, response.ContentLength)
+	response.Body.Read(respBody)
+
+	newAccessToken := new(TokenResponse)
+	if err := json.Unmarshal(respBody, newAccessToken); err != nil {
+		return "", err
+	}
+
+	a.accessToken = newAccessToken.AccessToken
+	return a.accessToken, nil
 }

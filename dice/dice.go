@@ -3,10 +3,12 @@ package dice
 import (
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"time"
 
 	twitchirc "github.com/gempir/go-twitch-irc/v2"
+	"github.com/soulxburn/soulxbot/db"
 	"github.com/soulxburn/soulxbot/twitch"
 )
 
@@ -38,7 +40,6 @@ func NewDice(sides int) *Dice {
 // Allow for many dice
 func NewDiceSlice(count int, sides int) []*Dice {
 	// Seeds once, rather than per-dice
-	rand.Seed(time.Now().UnixNano())
 	dice := make([]*Dice, 0, count)
 
 	for i := 0; i < count; i++ {
@@ -85,17 +86,17 @@ func (dg *DiceGame) startCooldownTimer() {
 }
 
 // StartRoll
-func (dg *DiceGame) StartRoll(channel string) error {
+func (dg *DiceGame) StartRoll(user db.StreamUser, channel string) error {
 	if !dg.CanRoll {
 		return errors.New("Roll is already in progress")
 	}
 
 	dg.rollCooldown.Reset(ROLL_COOLDOWN_RESET)
 	dg.CanRoll = false
-	fmt.Println("Executing startroll")
+	log.Println("Executing startroll")
 	// Check if prediction is in-flight.
 	// Start prediction
-	prediction, err := dg.twitchAPI.CreatePrediction("Dice Roll Prediction!", 120, []string{"Even", "Odd"})
+	prediction, err := dg.twitchAPI.CreatePrediction(user, "Dice Roll Prediction!", 120, []string{"Even", "Odd"})
 	if err != nil {
 		return err
 	}
@@ -111,20 +112,20 @@ func (dg *DiceGame) StartRoll(channel string) error {
 		winner := total % 2
 		if winner == 0 {
 			// Even wins
-			dg.endPrediction(prediction, "Even")
+			dg.endPrediction(user, prediction, "Even")
 		} else {
 			// Odd wins
-			dg.endPrediction(prediction, "Odd")
+			dg.endPrediction(user, prediction, "Odd")
 		}
 	}()
 
 	return nil
 }
 
-func (dg *DiceGame) endPrediction(prediction *twitch.TwitchPrediction, title string) {
+func (dg *DiceGame) endPrediction(user db.StreamUser, prediction *twitch.TwitchPrediction, title string) {
 	for _, v := range prediction.Outcomes {
 		if v.Title == title {
-			dg.twitchAPI.EndPrediction(prediction, v.ID)
+			dg.twitchAPI.EndPrediction(user, prediction, v.ID)
 		}
 	}
 }
