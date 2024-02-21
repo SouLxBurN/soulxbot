@@ -33,9 +33,6 @@ func (api *API) handleRegisterUser(res http.ResponseWriter, req *http.Request) {
 	query.Add("response_type", "code")
 	query.Add("scope", "openid channel:read:redemptions channel:manage:predictions moderator:manage:banned_users")
 	query.Add("claims", string(claimsJson))
-	// query.Add("claims", "{\"id_token\":{\"preferred_username\":null}}")
-	// query.Add("state", username)
-	// query.Add("nonce", username)
 	redirect.RawQuery = query.Encode()
 
 	res.Header().Add("Location", redirect.String())
