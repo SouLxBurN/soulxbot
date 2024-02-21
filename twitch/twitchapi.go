@@ -280,6 +280,11 @@ func (a *TwitchAPI) TimeoutUser(user db.StreamUser, userID string, duration int,
 
 // getUserAuthToken
 func (a *TwitchAPI) getUserAuthToken(user db.StreamUser) (*string, error) {
+	if user.TwitchAuthToken == nil {
+		log.Printf("User=%d is missing auth token", user.User.ID)
+		return nil, errors.New("Missing Auth Token")
+	}
+
 	authToken, err := db.DecryptToken(*user.TwitchAuthToken, a.keyPhrase)
 	if err != nil {
 		log.Println("Failed to decrypt authToken", err)
@@ -336,6 +341,11 @@ func (a *TwitchAPI) GetAuthenticatedUser(code string) (*TokenResponse, error) {
 func (a *TwitchAPI) refresUserAuthToken(user db.StreamUser) (*string, error) {
 	req, err := http.NewRequest("POST", TWITCH_OAUTH_API+TOKEN, bytes.NewReader([]byte{}))
 	req.Header.Add("Client-Id", a.clientID)
+
+	if user.TwitchRefreshToken == nil {
+		log.Printf("User=%d is missing refresh token", user.User.ID)
+		return nil, errors.New("Missing Refresh Token")
+	}
 
 	refreshToken, err := db.DecryptToken(*user.TwitchRefreshToken, a.keyPhrase)
 	if err != nil {
