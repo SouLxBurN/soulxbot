@@ -122,14 +122,12 @@ func main() {
 				// This is all deprecated
 				switch command {
 				case "startroll":
-					if irc.IsSouLxBurN(streamUser.Username) {
-						if AppCtx.DiceGame.CanRoll {
-							if err := AppCtx.DiceGame.StartRoll(message.Channel); err != nil {
-								log.Println("Failed to start roll: ", err)
-							}
-						} else {
-							AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%s, That command is on cooldown", message.User.DisplayName))
+					if AppCtx.DiceGame.CanRoll {
+						if err := AppCtx.DiceGame.StartRoll(*streamUser, message.Channel); err != nil {
+							log.Println("Failed to start roll: ", err)
 						}
+					} else {
+						AppCtx.ClientIRC.Say(message.Channel, fmt.Sprintf("%s, That command is on cooldown", message.User.DisplayName))
 					}
 				case "raid":
 					if irc.IsSouLxBurN(streamUser.Username) {
