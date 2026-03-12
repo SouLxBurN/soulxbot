@@ -87,7 +87,13 @@ func main() {
 	cmds = append(cmds, thanosCommand.GetCommands()...)
 	listeners := []irc.MessageListener{&firstCommands}
 
-	if env != "prod" {
+	// In production, register the real command names.
+	// In non-prod, register only "-dev" commands so dev bots can't respond to prod commands.
+	if env == "prod" {
+		for _, c := range cmds {
+			commands[c.CmdString] = c.Cmd
+		}
+	} else {
 		dev := "-dev"
 		for _, c := range cmds {
 			commands[c.CmdString+dev] = c.Cmd
